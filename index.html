@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778242702 -->
+<!-- deploy-marker 1778243037 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -314,6 +314,87 @@
   .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .icon-btn svg { width: 14px; height: 14px; }
 
+  /* IG CELL with optional edit button */
+  .ig-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ig-edit-btn {
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--hairline-strong);
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-faint);
+    opacity: 0;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .ig-edit-btn svg { width: 11px; height: 11px; }
+  /* Show on row hover */
+  tbody tr:hover .ig-edit-btn { opacity: 0.7; }
+  .ig-edit-btn:hover {
+    opacity: 1 !important;
+    border-color: var(--gold);
+    color: var(--gold-deep);
+    background: rgba(184, 150, 90, 0.05);
+  }
+
+  /* Inline editor (replaces handle text while editing) */
+  .ig-editor {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ig-editor .at-prefix {
+    color: var(--ink-faint);
+    font-size: 13px;
+  }
+  .ig-editor input {
+    border: 1px solid var(--gold);
+    background: var(--paper);
+    padding: 4px 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    border-radius: 3px;
+    width: 140px;
+    outline: none;
+  }
+  .ig-editor input:focus { border-color: var(--gold-deep); }
+  .ig-editor .ig-editor-btn {
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--hairline-strong);
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--ink-faint);
+    transition: all 0.2s;
+  }
+  .ig-editor .ig-editor-btn svg { width: 11px; height: 11px; }
+  .ig-editor .ig-editor-btn.save:hover {
+    border-color: var(--success);
+    color: var(--success);
+  }
+  .ig-editor .ig-editor-btn.cancel:hover {
+    border-color: var(--error);
+    color: var(--error);
+  }
+  .ig-editor .ig-editor-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
   /* TOAST */
   .toast {
     position: fixed;
@@ -511,6 +592,11 @@
     tbody.querySelectorAll('.refresh-one').forEach(btn => {
       btn.addEventListener('click', () => refreshOne(btn.dataset.id));
     });
+
+    // bind IG edit buttons
+    tbody.querySelectorAll('.ig-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => openIgEditor(btn));
+    });
   }
 
   function rowHtml(g) {
@@ -527,9 +613,23 @@
       ? `<span class="pill pill-${g.status.toLowerCase()}">${escapeHtml(g.status)}</span>`
       : '';
 
+    // Edit button only shown when followers data is missing
+    const needsAttention = g.igFollowers === null;
+    const editBtn = needsAttention
+      ? `<button class="ig-edit-btn" data-id="${g.id}" data-handle="${escapeAttr(g.instagram)}" title="Edit Instagram handle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>`
+      : '';
+
     const igLink = g.instagram
-      ? `<span class="ig-handle"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${escapeHtml(g.instagram)}</a></span>`
-      : '<span style="color:var(--ink-faint)">—</span>';
+      ? `<div class="ig-cell" data-id="${g.id}">
+          <span class="ig-handle"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${escapeHtml(g.instagram)}</a></span>
+          ${editBtn}
+         </div>`
+      : `<div class="ig-cell" data-id="${g.id}">
+          <span style="color:var(--ink-faint)">—</span>
+          ${editBtn}
+         </div>`;
 
     const submitted = g.createdTime ? formatDate(g.createdTime) : '';
 
@@ -712,6 +812,109 @@
         btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>';
       }
     }
+  }
+
+  // ===== INLINE IG EDIT =====
+  function openIgEditor(btn) {
+    const recordId = btn.dataset.id;
+    const currentHandle = btn.dataset.handle || '';
+    const cell = btn.closest('.ig-cell');
+    if (!cell) return;
+
+    // Replace cell content with editor
+    cell.innerHTML = `
+      <div class="ig-editor">
+        <span class="at-prefix">@</span>
+        <input type="text" class="ig-edit-input" value="${escapeAttr(currentHandle)}" placeholder="username" maxlength="30" />
+        <button class="ig-editor-btn save" title="Save (Enter)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button class="ig-editor-btn cancel" title="Cancel (Esc)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    `;
+
+    const input = cell.querySelector('.ig-edit-input');
+    const saveBtn = cell.querySelector('.ig-editor-btn.save');
+    const cancelBtn = cell.querySelector('.ig-editor-btn.cancel');
+
+    input.focus();
+    input.select();
+
+    // Save on Enter
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); saveIgEdit(recordId, input, saveBtn, cancelBtn); }
+      if (e.key === 'Escape') { e.preventDefault(); cancelIgEdit(); }
+    });
+    saveBtn.addEventListener('click', () => saveIgEdit(recordId, input, saveBtn, cancelBtn));
+    cancelBtn.addEventListener('click', () => cancelIgEdit());
+  }
+
+  async function saveIgEdit(recordId, input, saveBtn, cancelBtn) {
+    const raw = input.value.trim();
+    // Allow user to paste full URLs, the server normalizes
+    const cleaned = raw
+      .replace(/^@/, '')
+      .replace(/^https?:\/\/(www\.)?instagram\.com\//i, '')
+      .replace(/\/.*$/, '')
+      .replace(/\?.*$/, '')
+      .trim();
+
+    if (cleaned.length < 1) {
+      showToast('Handle cannot be empty', 'error');
+      input.focus();
+      return;
+    }
+
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    input.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner" style="width:11px;height:11px;border-width:1.5px"></span>';
+
+    try {
+      // 1) Update Airtable
+      const res = await fetch('/api/update-instagram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId, instagram: cleaned })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      showToast('Handle updated, fetching IG data…', 'success');
+
+      // 2) Trigger refresh for this record
+      const refreshRes = await fetch('/api/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: [recordId] })
+      });
+      const refreshData = await refreshRes.json();
+
+      if (refreshRes.ok && refreshData.updated > 0) {
+        showToast('Profile fetched successfully', 'success');
+      } else if (refreshRes.ok) {
+        showToast('Handle saved, but Instagram profile not found', 'error');
+      } else {
+        showToast('Handle saved but IG fetch failed: ' + (refreshData.error || 'unknown'), 'error');
+      }
+
+      // Reload data
+      await loadGuests();
+    } catch (err) {
+      showToast('Save failed: ' + err.message, 'error');
+      // Restore the editor so user can retry
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+      input.disabled = false;
+      saveBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    }
+  }
+
+  function cancelIgEdit() {
+    // Easiest: re-render the table, will rebuild the cell from data
+    renderTable();
   }
 
   // ===== UTILS =====
