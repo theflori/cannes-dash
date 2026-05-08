@@ -1,3 +1,4 @@
+// deploy-marker 1778242180
 // Protects everything except /login and /api/login
 // If user has valid session cookie -> pass through
 // Otherwise -> redirect to /login
