@@ -503,7 +503,7 @@
   function rowHtml(g) {
     const initial = (g.name || '?').trim().charAt(0).toUpperCase();
     const avatar = g.igAvatarUrl
-      ? `<span class="avatar" style="background-image:url('${escapeAttr(g.igAvatarUrl)}')"></span>`
+      ? `<span class="avatar" style="background-image:url('/api/avatar?url=${encodeURIComponent(g.igAvatarUrl)}')"></span>`
       : `<span class="avatar avatar-placeholder">${escapeHtml(initial)}</span>`;
 
     const followers = g.igFollowers !== null

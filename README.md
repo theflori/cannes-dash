@@ -50,7 +50,7 @@ Add these **5 variables** (click "+ Add variable" for each, all as **Plaintext**
 
 | Variable Name | Value |
 |---|---|
-| `DASHBOARD_PASSWORD` | `Marbre-Lumière-Croisette-6540` |
+| `DASHBOARD_PASSWORD` | `hubercannes2026!` |
 | `SESSION_SECRET` | `pVw31x7BF3KXietwnqqDvSFmWMCcnKEUXHbp5szg_qxdPtNQRjB6Jrynrmt5Cadv` |
 | `AIRTABLE_TOKEN` | (your Airtable Personal Access Token, same as RSVP project) |
 | `AIRTABLE_BASE_ID` | `appHcXDC9XhvjYnwa` |
@@ -76,7 +76,7 @@ Pages URL. Cloudflare will tell you the exact CNAME target.
 ## First use
 
 1. Open the dashboard URL
-2. Enter password: `Marbre-Lumière-Croisette-6540`
+2. Enter password: `hubercannes2026!`
 3. You'll see all RSVPs — IG columns will be empty
 4. Click **Refresh IG Data** in the top right
 5. Wait ~30 seconds while Apify scrapes all profiles
