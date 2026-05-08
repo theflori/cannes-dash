@@ -1,4 +1,4 @@
-// deploy-marker 1778242180
+// deploy-marker 1778246024
 // Protects everything except /login and /api/login
 // If user has valid session cookie -> pass through
 // Otherwise -> redirect to /login
@@ -8,7 +8,7 @@ export async function onRequest(context) {
   const url = new URL(request.url);
 
   // Public routes that don't need auth
-  const publicRoutes = ['/login', '/api/login', '/login.html'];
+  const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html'];
   if (publicRoutes.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))) {
     return next();
   }
@@ -16,6 +16,12 @@ export async function onRequest(context) {
   // Allow static assets (favicon etc) without auth
   const staticAssets = ['/favicon.ico', '/robots.txt'];
   if (staticAssets.includes(url.pathname)) {
+    return next();
+  }
+
+  // Allow shared assets (theme.css, app.js, sidebar.html) without auth
+  // — needed for login page to render properly
+  if (url.pathname.startsWith('/shared/')) {
     return next();
   }
 

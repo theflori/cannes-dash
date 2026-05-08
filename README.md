@@ -1,148 +1,138 @@
-# Château Privé · Guest Dashboard
+# Château Privé · EventOS Dashboard
 
-A separate Cloudflare Pages project that displays your RSVPs from Airtable
-with Instagram follower counts and avatar pictures (scraped via Apify).
-
----
-
-## What you get
-
-- Sortable table of all RSVPs from Airtable
-- Avatar pictures + follower counts via Apify scraper
-- Search, status filter, min-followers filter
-- One-click refresh (scrapes all profiles, ~30 sec for 200 guests)
-- Per-row refresh for single guests
-- Password-protected (cookie session, 30 days)
+Multi-page guest dashboard. Cloudflare Pages + Airtable + Apify.
+Twilio-prepared, sidebar nav, white+gold theme.
 
 ---
 
-## Files in this project
+## What's new (Phase 1 + 2)
+
+**Phase 1 — UX/Navigation:**
+- Sidebar nav (Guests, Messaging, Analytics, Branding, Logistics)
+- Multi-page architecture under `/`
+- White + Gold theme (replaces cream-only)
+- Logout button, mobile responsive
+
+**Phase 2 — Guest Management:**
+- Click any status pill → menu with all 6 options
+- Tags column (chips, filterable)
+- Internal Notes column (inline-editable on hover)
+- Bulk actions (select rows + change status for many)
+- Stats grid: Total / Pending / Confirmed / VIP / IG data
+- "Reload" button (re-fetch Airtable, no scrape, free & fast)
+- Search includes notes
+- Status options: Offen, Bestätigt, VIP, Warteliste, Abgelehnt, Geblockt
+
+---
+
+## File structure
 
 ```
 /
-├── index.html              ← Dashboard UI
-├── login.html              ← Password login page
+├── index.html            ← redirect to /guests
+├── guests.html           ← main page
+├── branding.html         ← Phase 4 placeholder
+├── login.html            ← refreshed
+├── shared/
+│   ├── theme.css         ← all design tokens
+│   ├── sidebar.html      ← shared sidebar
+│   └── app.js            ← shared utilities
 └── functions/
-    ├── _middleware.js      ← Auth check on every request
+    ├── _middleware.js    ← auth (allows /shared/ through)
     └── api/
-        ├── login.js        ← POST /api/login
-        ├── guests.js       ← GET /api/guests
-        └── refresh.js      ← POST /api/refresh
+        ├── login.js
+        ├── logout.js              ← NEW
+        ├── guests.js              ← UPDATED (returns tags + notes)
+        ├── refresh.js
+        ├── avatar.js
+        ├── update-instagram.js    ← legacy
+        ├── update-record.js       ← NEW (generic field update)
+        ├── update-bulk.js         ← NEW (bulk status change)
+        └── send-sms.js            ← NEW (Twilio stub)
 ```
 
 ---
 
-## DEPLOY — step by step
+## Required Airtable fields
 
-### 1) Create new Cloudflare Pages project
+Missing fields are handled gracefully (column just shows empty).
 
-1. Cloudflare Dashboard → Workers & Pages → **Create application** → **Pages** → **Direct Upload**
-2. Project name: `chateau-dashboard` (or similar)
-3. Drag the entire folder of this project into the upload area
-4. Click **Deploy site**
-5. After deploy: copy the temporary `*.pages.dev` URL (e.g. `chateau-dashboard.pages.dev`)
+Required NEW fields if not yet present:
+- **Tags** (Multiple select)
+- **Internal Notes** (Long text)
 
-### 2) Set environment variables
+Status options must match exactly:
+`Offen, Bestätigt, VIP, Warteliste, Abgelehnt, Geblockt`
 
-In your new Pages project → **Settings** → **Environment variables** → **Production**:
+### Airtable AI Cobuilder prompt:
 
-Add these **5 variables** (click "+ Add variable" for each, all as **Plaintext**):
+```
+In table tblGNkr4kT6yWbpqN, add these two fields if they don't already exist:
 
-| Variable Name | Value |
-|---|---|
-| `DASHBOARD_PASSWORD` | `hubercannes2026!` |
-| `SESSION_SECRET` | `pVw31x7BF3KXietwnqqDvSFmWMCcnKEUXHbp5szg_qxdPtNQRjB6Jrynrmt5Cadv` |
-| `AIRTABLE_TOKEN` | (your Airtable Personal Access Token, same as RSVP project) |
-| `AIRTABLE_BASE_ID` | `appHcXDC9XhvjYnwa` |
-| `AIRTABLE_TABLE_NAME` | `tblGNkr4kT6yWbpqN` |
-| `APIFY_TOKEN` | (your Apify Personal API token from apify.com → Settings → Integrations) |
+1. Field name: "Tags"
+   Type: Multiple select
+   Options: leave empty initially (user will add tags as needed)
 
-⚠️ **After adding the variables, you MUST trigger a fresh deployment**, otherwise
-the variables are not active. Go to Deployments tab → click the three dots
-on the latest deploy → **Retry deployment**.
+2. Field name: "Internal Notes"
+   Type: Long text
+   Rich formatting: No
 
-### 3) (Optional) Custom domain
+Also verify the "Status" field is Single Select with these options:
+Offen, Bestätigt, VIP, Warteliste, Abgelehnt, Geblockt
+Add any missing options. Do not change the field type or remove existing options.
 
-If you want `dashboard.fraimit.com` instead of `chateau-dashboard.pages.dev`:
-
-Settings → Custom domains → Set up custom domain → enter your subdomain.
-
-If your DNS is **not in Cloudflare** (it isn't, based on prior conversation),
-you'll need to add a CNAME record at your DNS provider pointing to the
-Pages URL. Cloudflare will tell you the exact CNAME target.
+Do not modify any other field.
+```
 
 ---
 
-## First use
+## Cloudflare Env Vars
 
-1. Open the dashboard URL
-2. Enter password: `hubercannes2026!`
-3. You'll see all RSVPs — IG columns will be empty
-4. Click **Refresh IG Data** in the top right
-5. Wait ~30 seconds while Apify scrapes all profiles
-6. Followers + avatars appear in the table
+Same 6 as before, no new required ones:
+- `DASHBOARD_PASSWORD`
+- `SESSION_SECRET`
+- `AIRTABLE_TOKEN`
+- `AIRTABLE_BASE_ID` = `appHcXDC9XhvjYnwa`
+- `AIRTABLE_TABLE_NAME` = `tblGNkr4kT6yWbpqN`
+- `APIFY_TOKEN`
 
-After the first refresh, you can sort by Followers, filter by minimum
-followers (e.g. only show 10K+), and use the per-row refresh button
-to update a single profile without re-scraping everyone.
+Optional for Phase 3 (Twilio SMS):
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
 
----
-
-## Cost
-
-- **Cloudflare Pages**: Free
-- **Airtable**: Free (existing setup)
-- **Apify**: $5 free credit at signup → ~3000 profile lookups free
-  - After credits: ~$1.60 per 1000 profiles → 200 guests = $0.32 per full refresh
-
-For an event of your size, the $5 free credit covers all your needs.
+Without Twilio creds, send-sms endpoint runs in stub mode (logs message, no real send).
 
 ---
 
-## Security notes
+## Twilio integration plan (Phase 3)
 
-- Password is stored as Cloudflare Pages secret (encrypted at rest)
-- Session cookie is HttpOnly + Secure + SameSite=Lax
-- Sessions are signed with HMAC-SHA256, expire after 30 days
-- `_middleware.js` blocks unauthenticated access on all routes except /login
-- `noindex,nofollow` meta tag prevents search engine indexing
+System is status-trigger ready. To activate:
+1. Add 3 Twilio env vars
+2. Re-deploy
+3. (Optional) Add "Send SMS" button to UI rows
+4. (Optional) Auto-fire SMS on status change in `update-record.js`
 
-If the password leaks: change `DASHBOARD_PASSWORD` env variable + retry deployment.
-All existing sessions remain valid until they expire (30 days). To force-invalidate
-all sessions, also rotate `SESSION_SECRET`.
+Templates: see `send-sms.js` — `acceptance`, `vip`, `waitlist`, `decline`, `reminder`.
+
+---
+
+## Deploy
+
+Push to GitHub → Cloudflare auto-deploys. After deploy, hard-reload browser (Cmd+Shift+R).
 
 ---
 
 ## Troubleshooting
 
-**Login page returns "Server not configured":**
-→ Environment variables are missing or deployment was not retried after adding them.
-Retry deployment in the Pages dashboard.
+**Sidebar missing:**
+Check `/shared/sidebar.html` exists, and `_middleware.js` has `if (url.pathname.startsWith('/shared/'))`.
 
-**"Failed to fetch from Airtable":**
-→ Wrong AIRTABLE_TOKEN or AIRTABLE_BASE_ID.
-Check token has read+write access to this base.
+**Status menu opens but click does nothing:**
+Status field in Airtable must exist as Single Select with the 6 status options.
 
-**"Apify scrape failed":**
-→ Free credit might be exhausted, or APIFY_TOKEN is wrong.
-Check apify.com → Billing for credit balance.
+**Tags column shows "—" everywhere:**
+Tags field doesn't exist yet — add it as Multiple Select.
 
-**Refresh runs but no data appears:**
-→ Instagram handles in your Airtable might be malformed.
-Make sure they're either `username` or `@username` (not full URLs).
-
-**Per-row refresh fails for one specific user:**
-→ That Instagram account is private, doesn't exist, or has been deleted.
-Apify returns no data, dashboard skips silently.
-
----
-
-## Files this project does NOT touch
-
-- The RSVP form (separate Pages project on `chateau-cannes.fraimit.com`)
-- Webhook function (`functions/webhook.js` in the RSVP project)
-- Email templates / Resend
-- Existing Airtable fields except `IG Followers`, `IG Avatar URL`, `IG Last Refresh`
-
-The RSVP form and this dashboard are two completely independent Cloudflare Pages
-projects that share one Airtable base.
+**500 error on update:**
+Check ALLOWED_FIELDS list in `update-record.js`. Field names are case-sensitive.
