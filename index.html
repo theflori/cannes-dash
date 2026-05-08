@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guest List · Château Privé</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F1ECDF;
+    --cream-deep: #E9E2D2;
+    --paper: #FBF7EC;
+    --ink: #1A1612;
+    --ink-soft: #4a4337;
+    --ink-faint: #8a8270;
+    --gold: #B8965A;
+    --gold-deep: #9a7d44;
+    --gold-light: #d4b884;
+    --hairline: rgba(26, 22, 18, 0.12);
+    --hairline-strong: rgba(26, 22, 18, 0.28);
+    --row-hover: rgba(184, 150, 90, 0.08);
+    --error: #B0463A;
+    --success: #4a7c59;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--paper);
+    border-bottom: 1px solid var(--hairline);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--gold-deep);
+  }
+  .brand-divider {
+    width: 1px;
+    height: 14px;
+    background: var(--hairline-strong);
+    align-self: center;
+  }
+  .brand-label {
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .stats {
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin-right: 20px;
+  }
+  .stats strong {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* CONTROL BAR */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 32px;
+    background: var(--cream);
+    border-bottom: 1px solid var(--hairline);
+    flex-wrap: wrap;
+  }
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .filter-group label {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  select, .min-followers {
+    border: 1px solid var(--hairline-strong);
+    background: var(--paper);
+    padding: 6px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  select:focus, .min-followers:focus { outline: 1px solid var(--gold); }
+  .min-followers { width: 100px; cursor: text; }
+
+  .search {
+    flex: 1;
+    min-width: 200px;
+    max-width: 320px;
+  }
+  .search input {
+    width: 100%;
+    border: 1px solid var(--hairline-strong);
+    background: var(--paper);
+    padding: 8px 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .search input:focus { outline: 1px solid var(--gold); }
+
+  .btn {
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--cream);
+    padding: 9px 18px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--ink);
+    color: var(--cream);
+  }
+
+  /* STATUS PILLS */
+  .pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .pill-pending { background: rgba(184, 150, 90, 0.15); color: var(--gold-deep); }
+  .pill-accepted { background: rgba(74, 124, 89, 0.18); color: var(--success); }
+  .pill-declined { background: rgba(176, 70, 58, 0.15); color: var(--error); }
+  .pill-waitlist { background: rgba(138, 130, 112, 0.18); color: var(--ink-soft); }
+  .pill-default { background: rgba(26, 22, 18, 0.08); color: var(--ink-soft); }
+
+  /* TABLE */
+  .table-wrap {
+    padding: 0 32px 32px;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--paper);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  thead {
+    background: var(--cream-deep);
+  }
+  th {
+    text-align: left;
+    padding: 14px 12px;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    border-bottom: 1px solid var(--hairline-strong);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+  }
+  th:hover { color: var(--gold-deep); }
+  th .sort-arrow {
+    display: inline-block;
+    margin-left: 4px;
+    opacity: 0.4;
+    font-size: 9px;
+  }
+  th.sorted-asc .sort-arrow,
+  th.sorted-desc .sort-arrow { opacity: 1; color: var(--gold); }
+
+  tbody tr {
+    border-bottom: 1px solid var(--hairline);
+    transition: background 0.15s;
+  }
+  tbody tr:hover { background: var(--row-hover); }
+  td {
+    padding: 12px;
+    vertical-align: middle;
+    font-size: 13px;
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--cream-deep) center/cover no-repeat;
+    flex-shrink: 0;
+    border: 1px solid var(--hairline);
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .avatar-placeholder {
+    background: var(--cream-deep);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-faint);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+  }
+
+  .name-col {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .name-col .text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .name-col .name {
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .name-col .email {
+    font-size: 11px;
+    color: var(--ink-faint);
+  }
+
+  .ig-handle {
+    color: var(--gold-deep);
+    font-family: 'Inter', sans-serif;
+  }
+  .ig-handle a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+  }
+  .ig-handle a:hover { border-bottom-color: var(--gold-deep); }
+
+  .followers {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .followers.big { color: var(--gold-deep); }
+  .followers.empty { color: var(--ink-faint); font-weight: 400; font-style: italic; }
+
+  .phone {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+  }
+
+  .row-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--hairline-strong);
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-faint);
+    transition: all 0.2s;
+  }
+  .icon-btn:hover:not(:disabled) {
+    border-color: var(--gold);
+    color: var(--gold-deep);
+    background: rgba(184, 150, 90, 0.05);
+  }
+  .icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .icon-btn svg { width: 14px; height: 14px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--ink);
+    color: var(--cream);
+    padding: 12px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 50;
+    max-width: 360px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.error { background: var(--error); }
+  .toast.success { background: var(--success); }
+
+  /* LOADING */
+  .loading-row {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-faint);
+    font-style: italic;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--ink-faint);
+  }
+  .empty-state .icon {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 48px;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+
+  /* SPINNER */
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--hairline-strong);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* MOBILE */
+  @media (max-width: 800px) {
+    .header { padding: 14px 18px; flex-wrap: wrap; gap: 8px; }
+    .controls { padding: 14px 18px; }
+    .table-wrap { padding: 0 0 32px; }
+    .stats { display: none; }
+    th, td { padding: 10px 8px; font-size: 12px; }
+    .name-col .email { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="brand">Château Privé</div>
+    <span class="brand-divider"></span>
+    <div class="brand-label">Guest Dashboard</div>
+  </div>
+  <div class="header-right">
+    <div class="stats" id="stats">Loading…</div>
+    <button class="btn" id="refreshBtn">
+      <span id="refreshLabel">Refresh IG Data</span>
+    </button>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="search">
+    <input type="text" id="searchInput" placeholder="Search by name, email, IG handle…">
+  </div>
+  <div class="filter-group">
+    <label>Status</label>
+    <select id="statusFilter">
+      <option value="">All</option>
+      <option value="Pending">Pending</option>
+      <option value="Accepted">Accepted</option>
+      <option value="Declined">Declined</option>
+      <option value="Waitlist">Waitlist</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Min Followers</label>
+    <input type="number" class="min-followers" id="minFollowers" placeholder="0" min="0">
+  </div>
+  <button class="btn btn-secondary" id="resetFiltersBtn">Reset</button>
+</div>
+
+<div class="table-wrap">
+  <table id="guestTable">
+    <thead>
+      <tr>
+        <th data-sort="name">Name <span class="sort-arrow">▾</span></th>
+        <th data-sort="instagram">Instagram <span class="sort-arrow">▾</span></th>
+        <th data-sort="igFollowers">Followers <span class="sort-arrow">▾</span></th>
+        <th data-sort="status">Status <span class="sort-arrow">▾</span></th>
+        <th data-sort="referredBy">Referred By <span class="sort-arrow">▾</span></th>
+        <th data-sort="createdTime">Submitted <span class="sort-arrow">▾</span></th>
+        <th data-sort="phone">Phone <span class="sort-arrow">▾</span></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="8" class="loading-row">Loading guests…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let allGuests = [];
+  let sortKey = 'createdTime';
+  let sortDir = 'desc'; // newest first
+  let currentFilters = { search: '', status: '', minFollowers: 0 };
+
+  // ===== INIT =====
+  document.addEventListener('DOMContentLoaded', () => {
+    loadGuests();
+    bindControls();
+  });
+
+  // ===== DATA LOAD =====
+  async function loadGuests() {
+    try {
+      const res = await fetch('/api/guests');
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      allGuests = data.guests || [];
+      renderStats();
+      renderTable();
+    } catch (err) {
+      showToast('Failed to load: ' + err.message, 'error');
+      document.getElementById('tbody').innerHTML = `<tr><td colspan="8" class="empty-state"><div class="icon">—</div>Failed to load.<br>${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  // ===== RENDER =====
+  function renderStats() {
+    const total = allGuests.length;
+    const pending = allGuests.filter(g => g.status === 'Pending').length;
+    const accepted = allGuests.filter(g => g.status === 'Accepted').length;
+    const withIg = allGuests.filter(g => g.igFollowers !== null).length;
+    document.getElementById('stats').innerHTML =
+      `<strong>${total}</strong> guests · <strong>${pending}</strong> pending · <strong>${accepted}</strong> accepted · <strong>${withIg}</strong> w/ IG data`;
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('tbody');
+    let rows = applyFilters(allGuests);
+    rows = sortRows(rows);
+
+    if (rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" class="empty-state"><div class="icon">—</div>No guests match the filters.</td></tr>`;
+      updateSortIndicators();
+      return;
+    }
+
+    tbody.innerHTML = rows.map(rowHtml).join('');
+    updateSortIndicators();
+
+    // bind per-row refresh
+    tbody.querySelectorAll('.refresh-one').forEach(btn => {
+      btn.addEventListener('click', () => refreshOne(btn.dataset.id));
+    });
+  }
+
+  function rowHtml(g) {
+    const initial = (g.name || '?').trim().charAt(0).toUpperCase();
+    const avatar = g.igAvatarUrl
+      ? `<span class="avatar" style="background-image:url('${escapeAttr(g.igAvatarUrl)}')"></span>`
+      : `<span class="avatar avatar-placeholder">${escapeHtml(initial)}</span>`;
+
+    const followers = g.igFollowers !== null
+      ? `<span class="followers ${g.igFollowers >= 10000 ? 'big' : ''}">${formatNumber(g.igFollowers)}</span>`
+      : `<span class="followers empty">—</span>`;
+
+    const status = g.status
+      ? `<span class="pill pill-${g.status.toLowerCase()}">${escapeHtml(g.status)}</span>`
+      : '';
+
+    const igLink = g.instagram
+      ? `<span class="ig-handle"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${escapeHtml(g.instagram)}</a></span>`
+      : '<span style="color:var(--ink-faint)">—</span>';
+
+    const submitted = g.createdTime ? formatDate(g.createdTime) : '';
+
+    return `
+      <tr>
+        <td>
+          <div class="name-col">
+            ${avatar}
+            <div class="text">
+              <span class="name">${escapeHtml(g.name) || '—'}</span>
+              <span class="email">${escapeHtml(g.email)}</span>
+            </div>
+          </div>
+        </td>
+        <td>${igLink}</td>
+        <td>${followers}</td>
+        <td>${status}</td>
+        <td>${escapeHtml(g.referredBy) || '<span style="color:var(--ink-faint)">—</span>'}</td>
+        <td><span style="color:var(--ink-soft)">${submitted}</span></td>
+        <td><span class="phone">${escapeHtml(g.phone)}</span></td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn refresh-one" data-id="${g.id}" title="Refresh this guest's IG data">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  function updateSortIndicators() {
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.classList.remove('sorted-asc', 'sorted-desc');
+      const arrow = th.querySelector('.sort-arrow');
+      if (th.dataset.sort === sortKey) {
+        th.classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        if (arrow) arrow.textContent = sortDir === 'asc' ? '▴' : '▾';
+      } else {
+        if (arrow) arrow.textContent = '▾';
+      }
+    });
+  }
+
+  // ===== FILTER & SORT =====
+  function applyFilters(list) {
+    return list.filter(g => {
+      if (currentFilters.status && g.status !== currentFilters.status) return false;
+      if (currentFilters.minFollowers > 0) {
+        if (g.igFollowers === null || g.igFollowers < currentFilters.minFollowers) return false;
+      }
+      if (currentFilters.search) {
+        const q = currentFilters.search.toLowerCase();
+        const haystack = [g.name, g.email, g.instagram, g.company, g.referredBy].join(' ').toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function sortRows(list) {
+    const sorted = [...list].sort((a, b) => {
+      let av = a[sortKey];
+      let bv = b[sortKey];
+      // null/empty handling
+      if (av === null || av === undefined || av === '') av = sortDir === 'asc' ? Infinity : -Infinity;
+      if (bv === null || bv === undefined || bv === '') bv = sortDir === 'asc' ? Infinity : -Infinity;
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }
+
+  // ===== EVENT BINDINGS =====
+  function bindControls() {
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.sort;
+        if (sortKey === key) {
+          sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortKey = key;
+          sortDir = (key === 'igFollowers' || key === 'createdTime') ? 'desc' : 'asc';
+        }
+        renderTable();
+      });
+    });
+
+    document.getElementById('searchInput').addEventListener('input', e => {
+      currentFilters.search = e.target.value.trim();
+      renderTable();
+    });
+    document.getElementById('statusFilter').addEventListener('change', e => {
+      currentFilters.status = e.target.value;
+      renderTable();
+    });
+    document.getElementById('minFollowers').addEventListener('input', e => {
+      currentFilters.minFollowers = parseInt(e.target.value) || 0;
+      renderTable();
+    });
+    document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+      currentFilters = { search: '', status: '', minFollowers: 0 };
+      document.getElementById('searchInput').value = '';
+      document.getElementById('statusFilter').value = '';
+      document.getElementById('minFollowers').value = '';
+      renderTable();
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+  }
+
+  // ===== REFRESH =====
+  async function refreshAll() {
+    const btn = document.getElementById('refreshBtn');
+    const label = document.getElementById('refreshLabel');
+    btn.disabled = true;
+    label.innerHTML = '<span class="spinner"></span>&nbsp;&nbsp;Scraping…';
+
+    try {
+      const res = await fetch('/api/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      showToast(`Refreshed ${data.updated} of ${data.targets} profiles`, 'success');
+      await loadGuests();
+    } catch (err) {
+      showToast('Refresh failed: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      label.textContent = 'Refresh IG Data';
+    }
+  }
+
+  async function refreshOne(recordId) {
+    const btn = document.querySelector(`.refresh-one[data-id="${recordId}"]`);
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+    }
+    try {
+      const res = await fetch('/api/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: [recordId] })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      if (data.updated > 0) {
+        showToast('Profile refreshed', 'success');
+      } else {
+        showToast('No data found for this profile', 'error');
+      }
+      await loadGuests();
+    } catch (err) {
+      showToast('Refresh failed: ' + err.message, 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>';
+      }
+    }
+  }
+
+  // ===== UTILS =====
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast show ${type}`;
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  function formatNumber(n) {
+    if (n === null || n === undefined) return '—';
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return n.toString();
+  }
+
+  function formatDate(iso) {
+    try {
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = now - d;
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      if (days === 0) return 'Today';
+      if (days === 1) return 'Yesterday';
+      if (days < 7) return `${days}d ago`;
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch { return ''; }
+  }
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  function escapeAttr(str) { return escapeHtml(str); }
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Château Privé · Dashboard</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F1ECDF;
+    --ink: #1A1612;
+    --ink-soft: #4a4337;
+    --ink-faint: #8a8270;
+    --gold: #B8965A;
+    --gold-deep: #9a7d44;
+    --hairline: rgba(26, 22, 18, 0.18);
+    --error: #B0463A;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+  }
+  .brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 38px;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 56px;
+  }
+  .form-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 12px;
+  }
+  .form-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 28px;
+    color: var(--ink);
+    margin-bottom: 36px;
+  }
+  .field {
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 12px;
+    margin-bottom: 28px;
+    transition: border-color 0.3s;
+  }
+  .field:focus-within { border-bottom-color: var(--gold); }
+  .field input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    color: var(--ink);
+    text-align: center;
+    letter-spacing: 0.08em;
+  }
+  button {
+    width: 100%;
+    background: var(--ink);
+    color: var(--cream);
+    border: none;
+    padding: 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  button:hover:not(:disabled) { background: var(--gold); color: var(--ink); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error {
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--error);
+    min-height: 18px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">Château Privé</div>
+    <div class="subtitle">Dashboard</div>
+
+    <div class="form-eyebrow">Authorized Access</div>
+    <div class="form-title">Enter password.</div>
+
+    <form id="loginForm">
+      <div class="field">
+        <input type="password" id="password" name="password" placeholder="Password" autocomplete="current-password" autofocus required>
+      </div>
+      <button type="submit" id="submitBtn">Continue</button>
+      <div class="error" id="error"></div>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const errEl = document.getElementById('error');
+    const btn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      errEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          window.location.href = '/';
+        } else {
+          errEl.textContent = data.error || 'Login failed';
+          btn.disabled = false;
+          btn.textContent = 'Continue';
+          document.getElementById('password').value = '';
+          document.getElementById('password').focus();
+        }
+      } catch (err) {
+        errEl.textContent = 'Network error';
+        btn.disabled = false;
+        btn.textContent = 'Continue';
+      }
+    });
+  </script>
+</body>
+</html>
