@@ -1,0 +1,621 @@
+<!-- deploy-marker 1778315340 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messaging · Château Privé EventOS</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/shared/theme.css">
+<style>
+  /* Filter pills bar */
+  .msg-filter-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .msg-pill {
+    padding: 6px 14px;
+    border: 1px solid var(--hairline-strong);
+    background: var(--surface-1);
+    border-radius: 16px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Inter', sans-serif;
+    white-space: nowrap;
+  }
+  .msg-pill:hover { border-color: var(--gold); color: var(--gold-deep); }
+  .msg-pill.active {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .msg-pill .count {
+    margin-left: 5px;
+    font-size: 11px;
+    color: var(--ink-faint);
+    opacity: 0.85;
+  }
+  .msg-pill.active .count { color: rgba(255,255,255,0.7); }
+
+  /* Status pills (within table) - reuse from theme but add Semi Approved */
+  .pill-listed { background: rgba(138, 130, 112, 0.18); color: var(--ink-soft); }
+  .pill-semi   { background: rgba(91, 141, 184, 0.18); color: #4a7090; }
+  .pill-mwait  { background: var(--warning-bg); color: var(--gold-deep); }
+  .pill-mapprv { background: var(--success-bg); color: var(--success); }
+  .pill-mdecl  { background: var(--error-bg); color: var(--error); }
+
+  /* Per-row send button */
+  .send-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: #fff;
+    border-radius: 6px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+  }
+  .send-btn:hover { background: var(--gold-deep); border-color: var(--gold-deep); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .send-btn svg { width: 12px; height: 12px; }
+
+  /* Status menu styling - reuse from guests page */
+  .status-menu {
+    position: absolute;
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+    z-index: 50;
+    min-width: 180px;
+  }
+  .status-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 7px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--ink);
+  }
+  .status-menu button:hover { background: var(--surface-2); }
+  .status-menu button .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 7px;
+    vertical-align: middle;
+  }
+  .status-menu .divider {
+    height: 1px;
+    background: var(--hairline);
+    margin: 4px 0;
+  }
+  .status-menu .clear-btn { color: var(--error); font-size: 11px; }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 80px 40px;
+    color: var(--ink-faint);
+  }
+  .empty-state .empty-icon {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 56px;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+  .empty-state .empty-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .empty-state .empty-desc {
+    font-size: 13px;
+    max-width: 420px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* Bulk send bar at bottom when items selected */
+  .bulk-bar {
+    position: sticky;
+    bottom: 0;
+    background: var(--ink);
+    color: #fff;
+    padding: 14px 22px;
+    border-radius: 12px 12px 0 0;
+    margin: 18px -16px -16px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
+    z-index: 10;
+  }
+  .bulk-bar.show { display: flex; }
+  .bulk-bar .count-text { font-size: 13px; }
+  .bulk-bar .actions { display: flex; gap: 8px; }
+  .bulk-bar .btn-bulk {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .bulk-bar .btn-bulk:hover { background: rgba(255,255,255,0.08); }
+  .bulk-bar .btn-bulk-primary {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--ink);
+  }
+  .bulk-bar .btn-bulk-primary:hover { background: var(--gold-light); }
+
+  /* Table column widths specific to messaging table */
+  .data-table .col-msgstatus { width: 145px; }
+  .data-table .col-laststatus { width: 130px; }
+  .data-table .col-send { width: 90px; padding-right: 12px; }
+
+  @media (max-width: 1280px) {
+    .data-table .col-laststatus { display: none; }
+  }
+  @media (max-width: 1100px) {
+    .data-table .col-tags { display: none; }
+  }
+  @media (max-width: 940px) {
+    .data-table .col-submitted { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <main class="app-main">
+    <header class="page-header">
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="page-title">
+        <h1>Messaging</h1>
+        <span class="page-subtitle" id="headerMeta">Loading…</span>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-ghost" id="reloadBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          Reload
+        </button>
+      </div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- Filter pills -->
+      <div class="msg-filter-bar" id="filterBar">
+        <button class="msg-pill active" data-filter="all">All <span class="count" id="cntAll">—</span></button>
+        <button class="msg-pill" data-filter="Listed">Listed <span class="count" id="cntListed">—</span></button>
+        <button class="msg-pill" data-filter="Semi Approved">Semi Approved <span class="count" id="cntSemi">—</span></button>
+        <button class="msg-pill" data-filter="Waitlist">Waitlist <span class="count" id="cntWait">—</span></button>
+        <button class="msg-pill" data-filter="Approved">Approved <span class="count" id="cntApproved">—</span></button>
+        <button class="msg-pill" data-filter="Declined">Declined <span class="count" id="cntDeclined">—</span></button>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="empty-icon">∅</div>
+        <div class="empty-title">No guests in messaging yet</div>
+        <div class="empty-desc">
+          Go to the <a href="/guests" style="color: var(--gold-deep)">Guests page</a>,
+          select people you want to communicate with, and click "List for Messaging".
+          They'll appear here for SMS &amp; email.
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card" id="tableCard">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="col-check">
+                  <input type="checkbox" id="selectAll" aria-label="Select all" />
+                </th>
+                <th class="col-name">Name</th>
+                <th class="col-ig">Instagram</th>
+                <th class="col-followers" style="text-align:right">Followers</th>
+                <th class="col-msgstatus">Messaging</th>
+                <th class="col-laststatus">Guest Status</th>
+                <th class="col-tags">Tags</th>
+                <th class="col-submitted">Date</th>
+                <th class="col-send"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Bulk action bar -->
+        <div class="bulk-bar" id="bulkBar">
+          <span class="count-text" id="bulkCount">0 selected</span>
+          <div class="actions">
+            <select class="btn-bulk" id="bulkStatus" style="background:rgba(255,255,255,0.1)">
+              <option value="">Set status to…</option>
+              <option value="Listed">Listed</option>
+              <option value="Semi Approved">Semi Approved</option>
+              <option value="Waitlist">Waitlist</option>
+              <option value="Approved">Approved</option>
+              <option value="Declined">Declined</option>
+              <option value="">— Remove from messaging</option>
+            </select>
+            <button class="btn-bulk btn-bulk-primary" id="bulkSend">Send to selected</button>
+            <button class="btn-bulk" id="bulkClear">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/shared/app.js"></script>
+<script>
+const App = window.ChateauApp;
+const { showToast, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar } = App;
+
+// ============== STATE ==============
+const MSG_STATUS_OPTIONS = ['Listed', 'Semi Approved', 'Waitlist', 'Approved', 'Declined'];
+const MSG_PILL = {
+  'Listed':       'pill-listed',
+  'Semi Approved':'pill-semi',
+  'Waitlist':     'pill-mwait',
+  'Approved':     'pill-mapprv',
+  'Declined':     'pill-mdecl'
+};
+const MSG_DOT = {
+  'Listed':       '#8a8270',
+  'Semi Approved':'#5b8db8',
+  'Waitlist':     '#D4A744',
+  'Approved':     '#4a7c59',
+  'Declined':     '#c47466'
+};
+
+let allGuests = [];
+let messagingGuests = [];
+let currentFilter = 'all';
+let selectedIds = new Set();
+
+// ============== INIT ==============
+document.addEventListener('DOMContentLoaded', async () => {
+  await injectSidebar('messaging');
+  document.getElementById('reloadBtn').addEventListener('click', loadGuests);
+  bindFilters();
+  bindBulkBar();
+  await loadGuests();
+});
+
+// ============== LOAD ==============
+async function loadGuests() {
+  try {
+    const res = await fetch('/api/guests');
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    allGuests = data.guests || [];
+    messagingGuests = allGuests.filter(g => g.messagingStatus);
+    renderCounts();
+    render();
+  } catch (err) {
+    showToast('Failed to load: ' + err.message, 'error');
+  }
+}
+
+// ============== RENDER ==============
+function renderCounts() {
+  const counts = { all: messagingGuests.length, Listed: 0, 'Semi Approved': 0, Waitlist: 0, Approved: 0, Declined: 0 };
+  for (const g of messagingGuests) {
+    if (counts[g.messagingStatus] !== undefined) counts[g.messagingStatus]++;
+  }
+  document.getElementById('cntAll').textContent = counts.all;
+  document.getElementById('cntListed').textContent = counts.Listed;
+  document.getElementById('cntSemi').textContent = counts['Semi Approved'];
+  document.getElementById('cntWait').textContent = counts.Waitlist;
+  document.getElementById('cntApproved').textContent = counts.Approved;
+  document.getElementById('cntDeclined').textContent = counts.Declined;
+
+  document.getElementById('headerMeta').textContent =
+    `${counts.all} guest${counts.all !== 1 ? 's' : ''} in messaging` +
+    (counts.Approved > 0 ? ` · ${counts.Approved} approved` : '');
+}
+
+function render() {
+  const tbody = document.getElementById('tbody');
+  const card = document.getElementById('tableCard');
+  const empty = document.getElementById('emptyState');
+
+  let rows = currentFilter === 'all'
+    ? messagingGuests
+    : messagingGuests.filter(g => g.messagingStatus === currentFilter);
+
+  // Sort: Approved first (most actionable), then by name
+  rows = [...rows].sort((a, b) => {
+    const order = { 'Approved': 0, 'Waitlist': 1, 'Semi Approved': 2, 'Listed': 3, 'Declined': 4 };
+    const oa = order[a.messagingStatus] ?? 99;
+    const ob = order[b.messagingStatus] ?? 99;
+    if (oa !== ob) return oa - ob;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  if (rows.length === 0) {
+    card.style.display = 'none';
+    empty.style.display = 'block';
+    if (messagingGuests.length === 0) {
+      empty.querySelector('.empty-title').textContent = 'No guests in messaging yet';
+      empty.querySelector('.empty-desc').innerHTML =
+        'Go to the <a href="/guests" style="color: var(--gold-deep)">Guests page</a>, ' +
+        'select people you want to communicate with, and click "List for Messaging". ' +
+        'They\'ll appear here for SMS &amp; email.';
+    } else {
+      empty.querySelector('.empty-title').textContent = 'No guests with this status';
+      empty.querySelector('.empty-desc').textContent = 'Switch filter or set status from the table.';
+    }
+    return;
+  }
+
+  card.style.display = '';
+  empty.style.display = 'none';
+  tbody.innerHTML = rows.map(rowHtml).join('');
+
+  // Bind interactions
+  tbody.querySelectorAll('input.row-check').forEach(cb => {
+    cb.addEventListener('change', e => {
+      if (e.target.checked) selectedIds.add(e.target.dataset.id);
+      else selectedIds.delete(e.target.dataset.id);
+      updateBulkBar();
+    });
+  });
+  tbody.querySelectorAll('[data-action="status"]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      openStatusMenu(el, el.dataset.id);
+    });
+  });
+  tbody.querySelectorAll('[data-action="send"]').forEach(btn => {
+    btn.addEventListener('click', () => sendSingle(btn.dataset.id));
+  });
+
+  document.getElementById('selectAll').addEventListener('change', e => {
+    if (e.target.checked) {
+      rows.forEach(g => selectedIds.add(g.id));
+    } else {
+      selectedIds.clear();
+    }
+    document.querySelectorAll('input.row-check').forEach(cb => {
+      cb.checked = selectedIds.has(cb.dataset.id);
+    });
+    updateBulkBar();
+  });
+}
+
+function rowHtml(g) {
+  const initial = (g.name || '?').trim().charAt(0).toUpperCase();
+  const avatar = g.igAvatarUrl
+    ? `<span class="avatar" style="background-image:url('/api/avatar?url=${encodeURIComponent(g.igAvatarUrl)}')"></span>`
+    : `<span class="avatar avatar-placeholder">${escapeHtml(initial)}</span>`;
+
+  const followers = g.igFollowers !== null
+    ? `<span class="followers ${g.igFollowers >= 10000 ? 'big' : ''}">${formatNumber(g.igFollowers)}</span>`
+    : `<span class="followers empty">—</span>`;
+
+  const msgStatus = g.messagingStatus || '';
+  const msgPillClass = MSG_PILL[msgStatus] || 'pill-default';
+  const msgPill = `<span class="pill ${msgPillClass} pill-clickable" data-action="status" data-id="${g.id}" title="Click to change">${escapeHtml(msgStatus)}</span>`;
+
+  const guestStatus = g.status
+    ? `<span style="color:var(--ink-soft); font-size:12px">${escapeHtml(g.status)}</span>`
+    : `<span style="color:var(--ink-faint)">—</span>`;
+
+  const igLink = g.instagram
+    ? `<div class="ig-cell"><span class="ig-handle"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${escapeHtml(g.instagram)}</a></span></div>`
+    : `<span style="color:var(--ink-faint)">—</span>`;
+
+  const tagsCell = (Array.isArray(g.tags) && g.tags.length > 0)
+    ? `<div class="tags-cell">${g.tags.slice(0, 2).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`
+    : `<span style="color:var(--ink-faint)">—</span>`;
+
+  const sendDisabled = !msgStatus || msgStatus === 'Listed' || msgStatus === 'Semi Approved' ? 'disabled' : '';
+  const sendTitle = sendDisabled
+    ? 'Set status to Waitlist, Approved, or Declined to send'
+    : `Send ${msgStatus} message`;
+
+  return `
+    <tr data-id="${g.id}">
+      <td class="col-check">
+        <input type="checkbox" class="row-check" data-id="${g.id}" ${selectedIds.has(g.id) ? 'checked' : ''}>
+      </td>
+      <td class="col-name">
+        <div class="name-block">
+          ${avatar}
+          <div class="name-text">
+            <div style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</div>
+            <div style="font-size:11px;color:var(--ink-faint)">${escapeHtml(g.email)}</div>
+          </div>
+        </div>
+      </td>
+      <td class="col-ig">${igLink}</td>
+      <td class="col-followers" style="text-align:right">${followers}</td>
+      <td class="col-msgstatus">${msgPill}</td>
+      <td class="col-laststatus">${guestStatus}</td>
+      <td class="col-tags">${tagsCell}</td>
+      <td class="col-submitted"><span class="muted">${g.createdTime ? formatDate(g.createdTime) : ''}</span></td>
+      <td class="col-send">
+        <button class="send-btn" data-action="send" data-id="${g.id}" ${sendDisabled} title="${escapeAttr(sendTitle)}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Send
+        </button>
+      </td>
+    </tr>
+  `;
+}
+
+// ============== FILTER PILLS ==============
+function bindFilters() {
+  document.getElementById('filterBar').addEventListener('click', e => {
+    const btn = e.target.closest('.msg-pill');
+    if (!btn) return;
+    document.querySelectorAll('.msg-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    selectedIds.clear();
+    render();
+    updateBulkBar();
+  });
+}
+
+// ============== STATUS MENU ==============
+let openMenu = null;
+function openStatusMenu(anchor, recordId) {
+  closeStatusMenu();
+  const menu = document.createElement('div');
+  menu.className = 'status-menu';
+  menu.innerHTML = MSG_STATUS_OPTIONS.map(s => {
+    return `<button data-status="${escapeAttr(s)}"><span class="dot" style="background:${MSG_DOT[s]}"></span>${escapeHtml(s)}</button>`;
+  }).join('') + '<div class="divider"></div>' +
+    `<button data-status="" class="clear-btn">Remove from messaging</button>`;
+
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.left = (r.left + window.scrollX) + 'px';
+  menu.style.top = (r.bottom + window.scrollY + 4) + 'px';
+
+  menu.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const newStatus = btn.dataset.status;
+      closeStatusMenu();
+      await setStatus([recordId], newStatus);
+    });
+  });
+
+  setTimeout(() => {
+    document.addEventListener('click', closeStatusMenu, { once: true });
+  }, 0);
+  openMenu = menu;
+}
+function closeStatusMenu() {
+  if (openMenu) { openMenu.remove(); openMenu = null; }
+}
+
+async function setStatus(recordIds, status) {
+  try {
+    const res = await fetch('/api/messaging/set-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds, status })
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error || `HTTP ${res.status}`);
+    }
+    if (status === '') {
+      showToast(`Removed from messaging`, 'success');
+    } else {
+      showToast(`Status set to ${status}`, 'success');
+    }
+    selectedIds.clear();
+    await loadGuests();
+  } catch (err) {
+    showToast('Update failed: ' + err.message, 'error');
+  }
+}
+
+// ============== SEND (Stub for Phase 2) ==============
+async function sendSingle(recordId) {
+  await sendBulk([recordId]);
+}
+async function sendBulk(recordIds) {
+  try {
+    const res = await fetch('/api/messaging/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.stub) {
+      showToast(data.message || 'Sending not active yet (Phase 2)', '');
+      return;
+    }
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    showToast(`Sent to ${data.sent || recordIds.length}`, 'success');
+  } catch (err) {
+    showToast('Send failed: ' + err.message, 'error');
+  }
+}
+
+// ============== BULK BAR ==============
+function bindBulkBar() {
+  document.getElementById('bulkClear').addEventListener('click', () => {
+    selectedIds.clear();
+    document.querySelectorAll('input.row-check').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateBulkBar();
+  });
+  document.getElementById('bulkStatus').addEventListener('change', async e => {
+    const newStatus = e.target.value;
+    if (e.target.selectedIndex === 0) return; // placeholder
+    if (selectedIds.size === 0) return;
+    e.target.selectedIndex = 0;
+
+    const ids = Array.from(selectedIds);
+    if (newStatus === '' && e.target.options[e.target.selectedIndex - 1]?.text?.includes('Remove')) {
+      // Remove from messaging - confirm
+      if (!confirm(`Remove ${ids.length} guest${ids.length>1?'s':''} from messaging?`)) {
+        return;
+      }
+    }
+    await setStatus(ids, newStatus);
+  });
+  document.getElementById('bulkSend').addEventListener('click', async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    await sendBulk(ids);
+  });
+}
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const count = selectedIds.size;
+  if (count > 0) {
+    bar.classList.add('show');
+    document.getElementById('bulkCount').textContent = `${count} selected`;
+  } else {
+    bar.classList.remove('show');
+  }
+}
+</script>
+
+</body>
+</html>

@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778311050 -->
+<!-- deploy-marker 1778315340 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -78,6 +78,10 @@
         <select class="input" id="bulkStatus" style="width:auto;background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.25)">
           <option value="">Set status…</option>
         </select>
+        <button class="btn" id="bulkListMessaging" style="background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:500" title="Add selected to Messaging (skips guests already in messaging)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          List for Messaging
+        </button>
         <button class="btn" id="bulkDeselectBtn">Clear</button>
       </div>
 
@@ -435,10 +439,51 @@ function bindEvents() {
     if (status) bulkUpdateStatus(status);
     e.target.value = '';
   });
+  document.getElementById('bulkListMessaging').addEventListener('click', bulkListForMessaging);
   document.getElementById('bulkDeselectBtn').addEventListener('click', () => {
     selectedIds.clear();
     render();
   });
+}
+
+async function bulkListForMessaging() {
+  const ids = Array.from(selectedIds);
+  if (ids.length === 0) return;
+
+  const btn = document.getElementById('bulkListMessaging');
+  btn.disabled = true;
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = 'Adding…';
+
+  try {
+    const res = await authFetch('/api/messaging/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds: ids })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    let msg;
+    if (data.added > 0 && data.skipped > 0) {
+      msg = `Added ${data.added} to messaging · ${data.skipped} skipped (already in)`;
+    } else if (data.added > 0) {
+      msg = `Added ${data.added} to messaging`;
+    } else if (data.skipped > 0) {
+      msg = `All ${data.skipped} already in messaging — none added`;
+    } else {
+      msg = 'No changes made';
+    }
+    showToast(msg, data.added > 0 ? 'success' : '');
+
+    selectedIds.clear();
+    await loadGuests();
+  } catch (err) {
+    showToast('Failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
 }
 
 function bindRowEvents() {

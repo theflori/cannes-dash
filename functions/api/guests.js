@@ -1,4 +1,4 @@
-// deploy-marker 1778311050
+// deploy-marker 1778315340
 // GET /api/guests
 // Returns all RSVP records from Airtable as JSON
 
@@ -72,6 +72,7 @@ function formatRecord(record) {
     instagram: igHandle,
     referredBy: f['Referred By'] || '',
     status: f['Status'] || '',
+    messagingStatus: f['Messaging Status'] || '',
     source: f['Source'] || '',
     tags: Array.isArray(f['Tags']) ? f['Tags'] : [],
     notes: f['Internal Notes'] || '',
