@@ -1,4 +1,4 @@
-/* deploy-marker 1778315340 */
+/* deploy-marker 1778325152 */
 /* Château Privé EventOS — Shared Theme
    Design language: clean white, gold accent, generous spacing, soft shadows
    Inspired by Linear / Stripe / Notion / EasyTix UI Kit
@@ -774,16 +774,37 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 12px 18px;
   background: var(--ink);
   color: var(--surface);
-  border-radius: var(--radius-md);
-  margin-bottom: 12px;
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  min-width: 480px;
+  max-width: calc(100vw - 40px);
+  flex-wrap: wrap;
+  justify-content: center;
+  animation: bulkBarSlideIn 0.2s ease-out;
+}
+@keyframes bulkBarSlideIn {
+  from { transform: translate(-50%, 20px); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+/* When sidebar visible (>= 900px), shift bulk-bar right by half the sidebar width
+   so it's centered relative to the content area, not the viewport */
+@media (min-width: 901px) {
+  .bulk-bar {
+    left: calc(50% + 120px); /* sidebar is 240px wide, center between sidebar end and right edge */
+  }
 }
 .bulk-bar .count {
   font-weight: 600;
   font-size: 13px;
+  white-space: nowrap;
 }
 .bulk-bar .btn {
   background: rgba(255,255,255,0.1);
@@ -794,8 +815,39 @@ a { color: inherit; text-decoration: none; }
   background: rgba(255,255,255,0.2);
   border-color: rgba(255,255,255,0.3);
 }
-.bulk-bar .btn-gold { background: var(--gold); border-color: var(--gold); }
+.bulk-bar .btn-gold { background: var(--gold); border-color: var(--gold); color: var(--ink); }
 .bulk-bar .btn-gold:hover { background: var(--gold-deep); border-color: var(--gold-deep); }
+
+/* Messaging indicator on guest rows */
+.status-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.msg-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #fff;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.msg-indicator svg { width: 11px; height: 11px; }
+.msg-indicator:hover {
+  background: var(--gold-deep);
+  transform: scale(1.08);
+}
+/* Variant by messaging status */
+.msg-indicator.msg-listed       { background: #8a8270; }
+.msg-indicator.msg-semi-approved { background: #5b8db8; }
+.msg-indicator.msg-waitlist     { background: #D4A744; }
+.msg-indicator.msg-approved     { background: #4a7c59; }
+.msg-indicator.msg-declined     { background: #c47466; }
 
 /* ============== DROPDOWN MENU ============== */
 .menu {

@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778315340 -->
+<!-- deploy-marker 1778325152 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -265,6 +265,13 @@ function rowHtml(g) {
   const pillLabel = STATUS_LABEL[statusKey] || statusKey;
   const statusPill = `<span class="pill ${pillClass} pill-clickable" data-action="status" data-id="${g.id}" title="${escapeAttr(statusKey)}">${escapeHtml(pillLabel)}</span>`;
 
+  // Messaging indicator: shown when guest is already in the messaging workflow
+  const msgIndicator = g.messagingStatus
+    ? `<a href="/messaging" class="msg-indicator msg-${g.messagingStatus.toLowerCase().replace(/\s/g, '-')}" title="In messaging: ${escapeAttr(g.messagingStatus)} — click to open messaging" onclick="event.stopPropagation()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+       </a>`
+    : '';
+
   const needsHandleEdit = g.igFollowers === null;
   const editBtn = needsHandleEdit
     ? `<button class="ig-edit-btn" data-action="edit-ig" data-id="${g.id}" data-handle="${escapeAttr(g.instagram)}" title="Edit Instagram handle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>`
@@ -302,7 +309,7 @@ function rowHtml(g) {
       </td>
       <td class="col-ig">${igCell}</td>
       <td class="col-followers">${followers}</td>
-      <td class="col-status">${statusPill}</td>
+      <td class="col-status"><div class="status-cell">${statusPill}${msgIndicator}</div></td>
       <td class="col-tags">${tagsHtml}</td>
       <td class="col-notes">${notesCell}</td>
       <td class="col-submitted"><span class="muted">${submitted}</span></td>
