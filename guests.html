@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778246024 -->
+<!-- deploy-marker 1778311050 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -83,22 +83,22 @@
 
       <!-- TABLE -->
       <div class="card" style="overflow:hidden">
-        <div style="overflow-x:auto">
-          <table class="data-table" id="guestTable" style="min-width:1100px">
+        <div class="table-scroll">
+          <table class="data-table" id="guestTable">
           <thead>
             <tr>
-              <th style="width:40px">
+              <th class="col-check">
                 <span class="checkbox" id="selectAllCb" title="Select all visible"></span>
               </th>
-              <th class="sortable" data-sort="name">Name <span class="sort-arrow">▾</span></th>
-              <th class="sortable" data-sort="instagram">Instagram <span class="sort-arrow">▾</span></th>
-              <th class="sortable" data-sort="igFollowers">Followers <span class="sort-arrow">▾</span></th>
-              <th class="sortable" data-sort="status">Status <span class="sort-arrow">▾</span></th>
-              <th>Tags</th>
-              <th>Notes</th>
-              <th class="sortable" data-sort="createdTime">Submitted <span class="sort-arrow">▾</span></th>
-              <th>Phone</th>
-              <th style="width:80px"></th>
+              <th class="sortable col-name" data-sort="name">Name <span class="sort-arrow">▾</span></th>
+              <th class="sortable col-ig" data-sort="instagram">Instagram <span class="sort-arrow">▾</span></th>
+              <th class="sortable col-followers" data-sort="igFollowers">Followers <span class="sort-arrow">▾</span></th>
+              <th class="sortable col-status" data-sort="status">Status <span class="sort-arrow">▾</span></th>
+              <th class="col-tags">Tags</th>
+              <th class="col-notes">Notes</th>
+              <th class="sortable col-submitted" data-sort="createdTime">Date <span class="sort-arrow">▾</span></th>
+              <th class="col-phone">Phone</th>
+              <th class="col-actions"></th>
             </tr>
           </thead>
           <tbody id="tbody">
@@ -122,6 +122,14 @@ const { showToast, authFetch, escapeHtml, escapeAttr, formatNumber, formatDate, 
 
 // ============== STATE ==============
 const STATUS_OPTIONS = ['Pending', 'Waitlisted', 'Approved', 'Approved Ticket sent', 'Rejected'];
+// Display labels shorter than full Airtable values, so pills stay compact
+const STATUS_LABEL = {
+  'Pending': 'Pending',
+  'Waitlisted': 'Waitlist',
+  'Approved': 'Approved',
+  'Approved Ticket sent': 'Ticket Sent',
+  'Rejected': 'Rejected'
+};
 // Map status to pill class (keys = exact Airtable values)
 const STATUS_PILL = {
   'Pending': 'pill-pending',
@@ -250,22 +258,26 @@ function rowHtml(g) {
 
   const statusKey = g.status || 'Pending';
   const pillClass = STATUS_PILL[statusKey] || 'pill-default';
-  const statusPill = `<span class="pill ${pillClass} pill-clickable" data-action="status" data-id="${g.id}">${escapeHtml(statusKey)}</span>`;
+  const pillLabel = STATUS_LABEL[statusKey] || statusKey;
+  const statusPill = `<span class="pill ${pillClass} pill-clickable" data-action="status" data-id="${g.id}" title="${escapeAttr(statusKey)}">${escapeHtml(pillLabel)}</span>`;
 
   const needsHandleEdit = g.igFollowers === null;
   const editBtn = needsHandleEdit
     ? `<button class="ig-edit-btn" data-action="edit-ig" data-id="${g.id}" data-handle="${escapeAttr(g.instagram)}" title="Edit Instagram handle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>`
     : '';
+  const igDisplay = g.instagram && g.instagram.length > 30
+    ? escapeHtml(g.instagram.substring(0, 30)) + '…'
+    : escapeHtml(g.instagram);
   const igCell = g.instagram
-    ? `<div class="ig-cell" data-id="${g.id}"><span class="ig-handle"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${escapeHtml(g.instagram)}</a></span>${editBtn}</div>`
+    ? `<div class="ig-cell" data-id="${g.id}"><span class="ig-handle" title="@${escapeAttr(g.instagram)}"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${igDisplay}</a></span>${editBtn}</div>`
     : `<div class="ig-cell" data-id="${g.id}"><span class="muted">—</span>${editBtn}</div>`;
 
   const tagsHtml = Array.isArray(g.tags) && g.tags.length > 0
-    ? g.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join(' ')
+    ? `<div class="tags-cell">${g.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`
     : '<span class="muted">—</span>';
 
   const notesPreview = g.notes
-    ? `<span title="${escapeAttr(g.notes)}" style="display:inline-block;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">${escapeHtml(g.notes)}</span>`
+    ? `<span class="notes-preview" title="${escapeAttr(g.notes)}">${escapeHtml(g.notes)}</span>`
     : '<span class="muted">—</span>';
   const notesCell = `<div class="ig-cell" data-id="${g.id}">${notesPreview}<button class="row-edit-btn" data-action="edit-notes" data-id="${g.id}" data-notes="${escapeAttr(g.notes)}" title="Edit notes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button></div>`;
 
@@ -274,24 +286,24 @@ function rowHtml(g) {
 
   return `
     <tr class="${isSelected ? 'selected' : ''}" data-id="${g.id}">
-      <td><span class="checkbox row-checkbox ${isSelected ? 'checked' : ''}" data-id="${g.id}"></span></td>
-      <td>
-        <div class="flex items-center gap-3">
+      <td class="col-check"><span class="checkbox row-checkbox ${isSelected ? 'checked' : ''}" data-id="${g.id}"></span></td>
+      <td class="col-name">
+        <div class="name-block">
           ${avatar}
-          <div>
+          <div class="name-text">
             <div style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</div>
             <div style="font-size:11px;color:var(--ink-faint)">${escapeHtml(g.email)}</div>
           </div>
         </div>
       </td>
-      <td>${igCell}</td>
-      <td>${followers}</td>
-      <td>${statusPill}</td>
-      <td>${tagsHtml}</td>
-      <td>${notesCell}</td>
-      <td><span class="muted">${submitted}</span></td>
-      <td><span class="tabular muted">${escapeHtml(g.phone)}</span></td>
-      <td>
+      <td class="col-ig">${igCell}</td>
+      <td class="col-followers">${followers}</td>
+      <td class="col-status">${statusPill}</td>
+      <td class="col-tags">${tagsHtml}</td>
+      <td class="col-notes">${notesCell}</td>
+      <td class="col-submitted"><span class="muted">${submitted}</span></td>
+      <td class="col-phone"><span class="tabular muted">${escapeHtml(g.phone)}</span></td>
+      <td class="col-actions">
         <div class="flex items-center gap-2" style="justify-content:flex-end">
           <button class="icon-btn" data-action="refresh-one" data-id="${g.id}" title="Refresh IG data for this guest">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
@@ -454,7 +466,7 @@ function openStatusMenu(anchor, recordId) {
   const menu = document.getElementById('statusMenu');
   const rect = anchor.getBoundingClientRect();
   menu.innerHTML = STATUS_OPTIONS.map(s =>
-    `<div class="menu-item" data-status="${escapeAttr(s)}"><span class="pill ${STATUS_PILL[s]||'pill-default'}" style="pointer-events:none">${escapeHtml(s)}</span></div>`
+    `<div class="menu-item" data-status="${escapeAttr(s)}"><span class="pill ${STATUS_PILL[s]||'pill-default'}" style="pointer-events:none">${escapeHtml(STATUS_LABEL[s]||s)}</span></div>`
   ).join('') + '<div class="menu-divider"></div>' +
     `<div class="menu-item danger" data-status=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Clear status</div>`;
   menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';

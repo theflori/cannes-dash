@@ -1,4 +1,4 @@
-// deploy-marker 1778246024
+// deploy-marker 1778311050
 // POST /api/logout — clears the session cookie
 
 export async function onRequestPost() {

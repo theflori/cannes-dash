@@ -1,4 +1,4 @@
-/* deploy-marker 1778246024 */
+/* deploy-marker 1778311050 */
 /* Château Privé EventOS — Shared Theme
    Design language: clean white, gold accent, generous spacing, soft shadows
    Inspired by Linear / Stripe / Notion / EasyTix UI Kit
@@ -410,23 +410,30 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ============== TABLE ============== */
+.table-scroll {
+  overflow-x: auto;
+  /* Below this viewport, allow horizontal scroll. Above 1280px, table fits cleanly. */
+}
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed; /* respect column widths, allow truncation */
 }
 .data-table thead {
   background: var(--surface-2);
 }
 .data-table th {
   text-align: left;
-  padding: 10px 14px;
+  padding: 10px 8px;
   font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-faint);
   font-weight: 500;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   user-select: none;
 }
 .data-table th.sortable {
@@ -450,10 +457,85 @@ a { color: inherit; text-decoration: none; }
 .data-table tbody tr.selected { background: var(--gold-bg); }
 .data-table tbody tr.selected:hover { background: var(--gold-bg); }
 .data-table td {
-  padding: 12px 14px;
+  padding: 11px 8px;
   vertical-align: middle;
   font-size: 13px;
   color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Column widths — calibrated so the entire table fits without horizontal scroll
+   at 1400px viewport (sidebar 240 + page-padding 48 = 1112px content available).
+   Total = 1098px ✓. IG column 175px shows up to ~25 chars before ellipsis;
+   handles longer than that get truncated to "...".
+   Below 1024px the table can scroll horizontally. */
+.data-table .col-check     { width: 32px; padding-left: 12px; padding-right: 4px; }
+.data-table .col-name      { width: 210px; }
+.data-table .col-ig        { width: 220px; max-width: 220px; }
+.data-table .col-followers { width: 100px; padding-right: 8px; }
+.data-table tbody td.col-followers { text-align: right; }
+.data-table .col-status    { width: 140px; }
+.data-table .col-tags      { width: 130px; }
+.data-table .col-notes     { width: 150px; max-width: 150px; }
+.data-table .col-submitted { width: 75px; }
+.data-table .col-phone     { display: none; }
+.data-table .col-actions   { width: 42px; padding-right: 12px; }
+
+/* Instagram cell — truncate at column width with ellipsis */
+.data-table .ig-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+.data-table .ig-cell .ig-handle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.data-table .ig-cell .ig-handle a {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* Notes truncation */
+.data-table .notes-cell {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  cursor: pointer;
+  max-width: 100%;
+}
+.data-table .notes-cell.empty { color: var(--ink-faint); font-style: italic; }
+.data-table .notes-edit-btn { opacity: 0; transition: opacity 0.15s; }
+.data-table tr:hover .notes-edit-btn { opacity: 1; }
+
+/* Tighter cell padding to keep total width down */
+.data-table th, .data-table td { padding-left: 8px; padding-right: 8px; }
+.data-table th:first-child, .data-table td:first-child { padding-left: 12px; }
+.data-table th:last-child, .data-table td:last-child { padding-right: 12px; }
+
+/* Cell content needs to handle overflow for truncation to work */
+.data-table td > * { max-width: 100%; }
+.data-table .name-block { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.data-table .name-block .name-text { min-width: 0; flex: 1; overflow: hidden; }
+.data-table .name-block .name-text > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ============== AVATAR ============== */
@@ -493,6 +575,9 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: 0.02em;
   white-space: nowrap;
   border: 1px solid transparent;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pill::before {
   content: '';
@@ -541,6 +626,31 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 .tag-removable button:hover { color: var(--error); }
+
+/* Tags inside table cell — horizontal, truncate overflow */
+.tags-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+}
+.tags-cell .tag {
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Notes preview in table — truncate to one line */
+.notes-preview {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
 
 /* ============== CHECKBOX ============== */
 .checkbox {
@@ -722,9 +832,24 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* ============== INLINE EDIT (IG handle, notes) ============== */
-.ig-cell { display: inline-flex; align-items: center; gap: 8px; }
-.ig-handle { color: var(--gold-deep); font-weight: 500; }
-.ig-handle a { color: inherit; }
+.ig-cell { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; }
+.ig-handle {
+  color: var(--gold-deep);
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.ig-handle a {
+  color: inherit;
+  display: inline-block;
+  max-width: 31ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  width: 100%;
+}
 .ig-handle a:hover { text-decoration: underline; text-decoration-color: var(--gold-light); }
 
 .ig-edit-btn, .row-edit-btn {
@@ -831,6 +956,30 @@ tbody tr:hover .row-edit-btn { opacity: 0.7; }
 
 /* ============== MOBILE ============== */
 .mobile-menu-btn { display: none; }
+
+/* Mid-size: between mobile and full desktop. Hide notes column on smaller screens
+   to keep table readable without horizontal scroll. */
+@media (max-width: 1280px) {
+  .data-table .col-notes { display: none; }
+  .data-table .col-name { width: 200px; }
+  .data-table .col-ig { width: 180px; max-width: 180px; }
+  .data-table .col-followers { width: 75px; }
+  .data-table .col-status { width: 130px; }
+  .data-table .col-tags { width: 100px; }
+  .data-table .col-submitted { width: 60px; }
+}
+
+@media (max-width: 1100px) {
+  .data-table .col-tags { display: none; }
+  .data-table .col-name { width: 220px; }
+  .data-table .col-ig { width: 180px; max-width: 180px; }
+  .data-table .col-status { width: 120px; }
+}
+
+@media (max-width: 940px) {
+  .data-table .col-submitted { display: none; }
+  .data-table .col-ig { width: 160px; max-width: 160px; }
+}
 
 @media (max-width: 900px) {
   .sidebar {
