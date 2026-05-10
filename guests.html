@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778325152 -->
+<!-- deploy-marker 1778398832 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -98,7 +98,7 @@
               <th class="sortable col-ig" data-sort="instagram">Instagram <span class="sort-arrow">▾</span></th>
               <th class="sortable col-followers" data-sort="igFollowers">Followers <span class="sort-arrow">▾</span></th>
               <th class="sortable col-status" data-sort="status">Status <span class="sort-arrow">▾</span></th>
-              <th class="col-tags">Tags</th>
+              <th class="col-tags">Referred By</th>
               <th class="col-notes">Notes</th>
               <th class="sortable col-submitted" data-sort="createdTime">Date <span class="sort-arrow">▾</span></th>
               <th class="col-phone">Phone</th>
@@ -283,8 +283,8 @@ function rowHtml(g) {
     ? `<div class="ig-cell" data-id="${g.id}"><span class="ig-handle" title="@${escapeAttr(g.instagram)}"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${igDisplay}</a></span>${editBtn}</div>`
     : `<div class="ig-cell" data-id="${g.id}"><span class="muted">—</span>${editBtn}</div>`;
 
-  const tagsHtml = Array.isArray(g.tags) && g.tags.length > 0
-    ? `<div class="tags-cell">${g.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>`
+  const referralHtml = g.referredBy
+    ? `<span style="font-size:13px;color:var(--ink)">${escapeHtml(g.referredBy)}</span>`
     : '<span class="muted">—</span>';
 
   const notesPreview = g.notes
@@ -310,7 +310,7 @@ function rowHtml(g) {
       <td class="col-ig">${igCell}</td>
       <td class="col-followers">${followers}</td>
       <td class="col-status"><div class="status-cell">${statusPill}${msgIndicator}</div></td>
-      <td class="col-tags">${tagsHtml}</td>
+      <td class="col-tags">${referralHtml}</td>
       <td class="col-notes">${notesCell}</td>
       <td class="col-submitted"><span class="muted">${submitted}</span></td>
       <td class="col-phone"><span class="tabular muted">${escapeHtml(g.phone)}</span></td>

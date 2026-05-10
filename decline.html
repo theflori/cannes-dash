@@ -1,0 +1,243 @@
+<!-- deploy-marker 1778398832 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Château Privé · Can't make it?</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F1ECDF;
+    --paper: #FBF7EC;
+    --ink: #1A1612;
+    --ink-soft: #4a4337;
+    --ink-faint: #8a8270;
+    --gold: #B8965A;
+    --gold-deep: #9a7d44;
+    --hairline: rgba(26, 22, 18, 0.12);
+    --error: #B0463A;
+    --success: #4a7c59;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    max-width: 460px;
+    width: 100%;
+    padding: 48px 40px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.04);
+  }
+  .brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 28px;
+    color: var(--gold-deep);
+    margin-bottom: 6px;
+  }
+  .brand-meta {
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 40px;
+  }
+  h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 16px;
+    line-height: 1.2;
+  }
+  p {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .name-line {
+    font-size: 14px;
+    color: var(--ink-faint);
+    margin-bottom: 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .name-line strong { color: var(--ink); font-weight: 500; }
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 32px;
+  }
+  button, .btn-link {
+    width: 100%;
+    border: none;
+    padding: 14px 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+  }
+  .btn-decline {
+    background: var(--ink);
+    color: var(--cream);
+  }
+  .btn-decline:hover:not(:disabled) {
+    background: var(--error);
+  }
+  .btn-decline:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-cancel {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--hairline);
+    text-decoration: none !important;
+  }
+  .btn-cancel:hover { border-color: var(--ink); color: var(--ink); }
+
+  .state-success {
+    color: var(--success);
+  }
+  .state-error {
+    color: var(--error);
+  }
+  .icon-state {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 56px;
+    margin-bottom: 12px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--hairline);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="brand">Château Privé</div>
+  <div class="brand-meta">Cannes · 15 May 2026</div>
+
+  <div id="state-loading">
+    <h1>Loading…</h1>
+  </div>
+
+  <div id="state-confirm" style="display:none">
+    <h1>Can't make it?</h1>
+    <div class="name-line" id="nameLine">Verifying your invitation…</div>
+    <p>If you confirm, we'll remove you from the guest list. This can't be undone — we'd love to know if you change your mind, but please reach out to the host directly.</p>
+    <div class="actions">
+      <button class="btn-decline" id="confirmBtn">Yes, I can't make it</button>
+      <a href="/" class="btn-cancel" onclick="window.close(); return true;">Never mind, close this</a>
+    </div>
+  </div>
+
+  <div id="state-success" style="display:none">
+    <div class="icon-state state-success">✓</div>
+    <h1>Removed.</h1>
+    <p>Thank you for letting us know. Take care.</p>
+    <p style="font-style:italic;color:var(--ink-faint);margin-top:24px">— Château Privé</p>
+  </div>
+
+  <div id="state-already" style="display:none">
+    <h1>Already removed</h1>
+    <p>You've already declined. No action needed.</p>
+  </div>
+
+  <div id="state-invalid" style="display:none">
+    <div class="icon-state state-error">!</div>
+    <h1>Link expired or invalid</h1>
+    <p>This link doesn't appear to be valid. If you believe this is an error, please contact the host directly.</p>
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+
+  function show(stateId) {
+    ['state-loading','state-confirm','state-success','state-already','state-invalid'].forEach(id => {
+      document.getElementById(id).style.display = id === stateId ? '' : 'none';
+    });
+  }
+
+  async function init() {
+    if (!token) { show('state-invalid'); return; }
+
+    try {
+      const res = await fetch('/api/decline/lookup?token=' + encodeURIComponent(token));
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        show('state-invalid');
+        return;
+      }
+
+      if (data.alreadyDeclined) {
+        show('state-already');
+        return;
+      }
+
+      // Update name line, show confirm
+      document.getElementById('nameLine').innerHTML = `Hi <strong>${data.name || 'there'}</strong>`;
+      show('state-confirm');
+    } catch (err) {
+      show('state-invalid');
+    }
+  }
+
+  document.getElementById('confirmBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('confirmBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Removing…';
+
+    try {
+      const res = await fetch('/api/decline/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      show('state-success');
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Try again';
+      alert('Could not remove: ' + err.message);
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,306 @@
+<!-- deploy-marker 1778398832 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Château Privé · Add a person</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F1ECDF;
+    --paper: #FBF7EC;
+    --ink: #1A1612;
+    --ink-soft: #4a4337;
+    --ink-faint: #8a8270;
+    --gold: #B8965A;
+    --gold-deep: #9a7d44;
+    --hairline: rgba(26, 22, 18, 0.12);
+    --hairline-strong: rgba(26, 22, 18, 0.22);
+    --error: #B0463A;
+    --success: #4a7c59;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 24px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    max-width: 480px;
+    width: 100%;
+    padding: 40px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.04);
+  }
+  .brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 28px;
+    color: var(--gold-deep);
+    margin-bottom: 4px;
+    text-align: center;
+  }
+  .brand-meta {
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  h1 {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 28px;
+    font-weight: 500;
+    margin-bottom: 10px;
+    line-height: 1.2;
+  }
+  .lead {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+  .lead strong { color: var(--ink); font-weight: 500; }
+  .helper {
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .row { display: flex; gap: 12px; }
+  .row > .field { flex: 1; }
+  .field {
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+  .field:focus-within { border-bottom-color: var(--gold); }
+  label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+  }
+  input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    padding: 4px 0;
+  }
+  input::placeholder { color: var(--ink-faint); opacity: 0.6; }
+
+  button {
+    width: 100%;
+    border: none;
+    background: var(--ink);
+    color: var(--cream);
+    padding: 16px 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 16px;
+  }
+  button:hover:not(:disabled) { background: var(--gold); color: var(--ink); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .error {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--error);
+    min-height: 18px;
+  }
+
+  .icon-state {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 56px;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .text-success { color: var(--success); }
+  .text-error { color: var(--error); }
+  .center { text-align: center; }
+
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid rgba(241,236,223,0.3);
+    border-top-color: var(--cream);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 8px;
+    vertical-align: -1px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="brand">Château Privé</div>
+  <div class="brand-meta">Cannes · 15 May 2026</div>
+
+  <div id="state-loading">
+    <h1>Loading…</h1>
+  </div>
+
+  <div id="state-form" style="display:none">
+    <h1>Add a person.</h1>
+    <p class="lead" id="leadLine">Verifying your invitation…</p>
+    <p class="helper">One additional person. They'll receive their own confirmation email.</p>
+
+    <form id="form">
+      <div class="row">
+        <div class="field">
+          <label>First name</label>
+          <input type="text" id="firstName" name="firstName" required autocomplete="given-name" maxlength="60">
+        </div>
+        <div class="field">
+          <label>Last name</label>
+          <input type="text" id="lastName" name="lastName" required autocomplete="family-name" maxlength="60">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email" maxlength="120">
+      </div>
+
+      <div class="field">
+        <label>Phone (with country code)</label>
+        <input type="tel" id="phone" name="phone" placeholder="+49…" autocomplete="tel" maxlength="30">
+      </div>
+
+      <button type="submit" id="submitBtn">Send invitation</button>
+      <div class="error" id="error"></div>
+    </form>
+  </div>
+
+  <div id="state-success" style="display:none">
+    <div class="icon-state text-success">✓</div>
+    <h1 class="center">Invitation sent</h1>
+    <p class="lead center" id="successLine">We've sent the confirmation to your guest.</p>
+    <p class="helper center" style="border-bottom:none;margin-top:24px;font-style:italic">— Château Privé</p>
+  </div>
+
+  <div id="state-already" style="display:none">
+    <h1>Plus-one already added</h1>
+    <p class="lead" id="alreadyLine">You've already added a guest. Each invitation allows one plus-one only.</p>
+    <p class="helper" style="border-bottom:none">If something needs changing, please contact the host directly.</p>
+  </div>
+
+  <div id="state-invalid" style="display:none">
+    <div class="icon-state text-error">!</div>
+    <h1 class="center">Link invalid</h1>
+    <p class="lead center">This link doesn't appear to be valid. If you believe this is an error, please contact the host directly.</p>
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+
+  function show(stateId) {
+    ['state-loading','state-form','state-success','state-already','state-invalid'].forEach(id => {
+      document.getElementById(id).style.display = id === stateId ? '' : 'none';
+    });
+  }
+
+  async function init() {
+    if (!token) { show('state-invalid'); return; }
+
+    try {
+      const res = await fetch('/api/plus-one/lookup?token=' + encodeURIComponent(token));
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        show('state-invalid');
+        return;
+      }
+
+      if (data.alreadyUsed) {
+        document.getElementById('alreadyLine').innerHTML =
+          'You\'ve already added <strong>' + (data.plusOneName || 'a guest') + '</strong>. Each invitation allows one plus-one only.';
+        show('state-already');
+        return;
+      }
+
+      document.getElementById('leadLine').innerHTML =
+        'You\'re adding a guest to <strong>' + (data.primaryName || 'your invitation') + '</strong>.';
+      show('state-form');
+    } catch (err) {
+      show('state-invalid');
+    }
+  }
+
+  document.getElementById('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const errEl = document.getElementById('error');
+    const btn = document.getElementById('submitBtn');
+    errEl.textContent = '';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Sending…';
+
+    const payload = {
+      token,
+      firstName: document.getElementById('firstName').value.trim(),
+      lastName: document.getElementById('lastName').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      phone: document.getElementById('phone').value.trim()
+    };
+
+    if (!payload.firstName || !payload.lastName || !payload.email) {
+      errEl.textContent = 'Please fill in all required fields.';
+      btn.disabled = false;
+      btn.textContent = 'Send invitation';
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/plus-one/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+
+      document.getElementById('successLine').textContent =
+        'A confirmation has been sent to ' + payload.email + '.';
+      show('state-success');
+    } catch (err) {
+      errEl.textContent = err.message;
+      btn.disabled = false;
+      btn.textContent = 'Send invitation';
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>

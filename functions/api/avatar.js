@@ -1,4 +1,4 @@
-// deploy-marker 1778315340
+// deploy-marker 1778398832
 // GET /api/avatar?url=<urlencoded Instagram CDN URL>
 // Proxies Instagram avatar images server-side to bypass hotlinking protection
 
