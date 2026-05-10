@@ -1,4 +1,4 @@
-// deploy-marker 1778406072
+// deploy-marker 1778411169
 // Email + SMS templates for messaging flows.
 // Dark Château Privé style — matches cannescastle email design.
 //
@@ -58,7 +58,7 @@ ${declineUrl}
   .container { width: 100% !important; }
   .px-48 { padding-left: 28px !important; padding-right: 28px !important; }
   .py-72 { padding-top: 48px !important; padding-bottom: 40px !important; }
-  .h1 { font-size: 56px !important; }
+  .h1 { font-size: 44px !important; }
   .details td { font-size: 14px !important; }
   .details .lbl { width: 110px !important; }
 }
@@ -90,9 +90,9 @@ body { margin: 0; padding: 0; }
 <tr><td width="72" height="72" align="center" valign="middle" style="border:1px solid #B8965A;border-radius:36px;font-family:Georgia,serif;font-size:28px;color:#d4b884;line-height:72px">&#10003;</td></tr>
 </table>
 
-<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.65);letter-spacing:4px;text-transform:uppercase">You are confirmed</p>
+<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.65);letter-spacing:4px;text-transform:uppercase">Château Privé &middot; 15 May 2026</p>
 
-<h1 class="h1" style="margin:0 0 24px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:64px;line-height:1;color:#d4b884;letter-spacing:-0.5px">Welcome.</h1>
+<h1 class="h1" style="margin:0 0 24px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:52px;line-height:1.05;color:#d4b884;letter-spacing:-0.5px">You are confirmed.</h1>
 
 <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 32px">
 <tr><td width="60" height="1" bgcolor="#B8965A" style="background-color:#B8965A;line-height:1px;font-size:0">&nbsp;</td></tr>
@@ -325,7 +325,7 @@ ${declineUrl}
 @media only screen and (max-width: 620px) {
   .container { width: 100% !important; }
   .px-48 { padding-left: 28px !important; padding-right: 28px !important; }
-  .h1 { font-size: 56px !important; }
+  .h1 { font-size: 44px !important; }
 }
 body { margin: 0; padding: 0; }
 </style>
@@ -352,9 +352,9 @@ body { margin: 0; padding: 0; }
 <tr><td width="72" height="72" align="center" valign="middle" style="border:1px solid #B8965A;border-radius:36px;font-family:Georgia,serif;font-size:28px;color:#d4b884;line-height:72px">&#10003;</td></tr>
 </table>
 
-<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.65);letter-spacing:4px;text-transform:uppercase">You are confirmed</p>
+<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.65);letter-spacing:4px;text-transform:uppercase">Château Privé &middot; 15 May 2026</p>
 
-<h1 class="h1" style="margin:0 0 24px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:64px;line-height:1;color:#d4b884">Welcome.</h1>
+<h1 class="h1" style="margin:0 0 24px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:52px;line-height:1.05;color:#d4b884">You are confirmed.</h1>
 
 <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin:0 auto 32px">
 <tr><td width="60" height="1" bgcolor="#B8965A" style="background-color:#B8965A;line-height:1px;font-size:0">&nbsp;</td></tr>
