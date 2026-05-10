@@ -1,4 +1,4 @@
-// deploy-marker 1778398832
+// deploy-marker 1778400136
 // Email & SMS templates for messaging flows.
 // All copy in English, brand-styled HTML for emails.
 
@@ -142,7 +142,7 @@ export function renderConfirmationSms({ name, declineUrl }) {
 
 // ============== WAITLIST ==============
 
-export function renderWaitlistEmail({ name }) {
+export function renderWaitlistEmail({ name, declineUrl }) {
   const firstName = (name || '').split(' ')[0] || 'there';
   const subject = "Waitlist · Château Privé · Cannes";
 
@@ -151,6 +151,9 @@ export function renderWaitlistEmail({ name }) {
 Thank you for your interest in Château Privé.
 
 We've placed you on the waitlist for now. We'll be in touch in the coming days as we finalize the guest list — if a spot opens up, you'll hear from us first.
+
+Can't make it after all?
+${declineUrl || ''}
 
 — Château Privé
 `;
@@ -169,7 +172,14 @@ We've placed you on the waitlist for now. We'll be in touch in the coming days a
           <div style="font-family:Georgia,serif;font-style:italic;font-size:24px;color:#1A1612;margin-bottom:14px">${escapeHtml(firstName)},</div>
           <p style="margin:0 0 16px;font-size:15px;line-height:1.6">Thank you for your interest in Château Privé.</p>
           <p style="margin:0 0 16px;font-size:15px;line-height:1.6">We've placed you on the <strong>waitlist</strong> for now. We'll be in touch in the coming days as we finalize the guest list — if a spot opens up, you'll hear from us first.</p>
+          <p style="margin:0 0 0;font-size:14px;line-height:1.6;color:#4a4337">No action needed from your side at this point.</p>
         </td></tr>
+        ${declineUrl ? `<tr><td style="padding:0 40px 32px;text-align:center">
+          <p style="margin:0;font-size:12px;color:#8a8270">
+            Can't make it after all?
+            <a href="${escapeHtml(declineUrl)}" style="color:#9a7d44;text-decoration:underline">Let us know</a>
+          </p>
+        </td></tr>` : ''}
         <tr><td style="padding:24px 40px;background:rgba(26,22,18,0.03);text-align:center;border-top:1px solid rgba(26,22,18,0.08)">
           <div style="font-family:Georgia,serif;font-style:italic;font-size:14px;color:#9a7d44">Château Privé</div>
         </td></tr>
@@ -179,6 +189,11 @@ We've placed you on the waitlist for now. We'll be in touch in the coming days a
 </body></html>`;
 
   return { subject, text, html };
+}
+
+export function renderWaitlistSms({ name, declineUrl }) {
+  const firstName = (name || '').split(' ')[0] || '';
+  return `${firstName ? firstName + ', ' : ''}you're on the waitlist for Château Privé · 15 May · Cannes. Details in your email. Can't make it? ${declineUrl}`;
 }
 
 // ============== PLUS-ONE WELCOME (sent to Plus-One after registration) ==============

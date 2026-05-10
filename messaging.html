@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778398832 -->
+<!-- deploy-marker 1778400136 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -150,42 +150,7 @@
   }
 
   /* Bulk send bar at bottom when items selected */
-  .bulk-bar {
-    position: sticky;
-    bottom: 0;
-    background: var(--ink);
-    color: #fff;
-    padding: 14px 22px;
-    border-radius: 12px 12px 0 0;
-    margin: 18px -16px -16px;
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.12);
-    z-index: 10;
-  }
-  .bulk-bar.show { display: flex; }
-  .bulk-bar .count-text { font-size: 13px; }
-  .bulk-bar .actions { display: flex; gap: 8px; }
-  .bulk-bar .btn-bulk {
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    border: 1px solid rgba(255,255,255,0.25);
-    background: transparent;
-    color: #fff;
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
-  }
-  .bulk-bar .btn-bulk:hover { background: rgba(255,255,255,0.08); }
-  .bulk-bar .btn-bulk-primary {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: var(--ink);
-  }
-  .bulk-bar .btn-bulk-primary:hover { background: var(--gold-light); }
+  /* Bulk action bar — uses global .bulk-bar from theme.css (fixed bottom) */
 
   /* Table column widths specific to messaging table */
   .data-table .col-msgstatus { width: 145px; }
@@ -269,22 +234,21 @@
           </table>
         </div>
 
-        <!-- Bulk action bar -->
-        <div class="bulk-bar" id="bulkBar">
-          <span class="count-text" id="bulkCount">0 selected</span>
-          <div class="actions">
-            <select class="btn-bulk" id="bulkStatus" style="background:rgba(255,255,255,0.1)">
-              <option value="">Set status to…</option>
-              <option value="Listed">Listed</option>
-              <option value="Semi Approved">Semi Approved</option>
-              <option value="Waitlist">Waitlist</option>
-              <option value="Approved">Approved</option>
-              <option value="Declined">Declined</option>
-              <option value="">— Remove from messaging</option>
-            </select>
-            <button class="btn-bulk btn-bulk-primary" id="bulkSend">Confirm &amp; send selected</button>
-            <button class="btn-bulk" id="bulkClear">Cancel</button>
-          </div>
+        <!-- Bulk action bar (uses global .bulk-bar from theme.css - fixed bottom) -->
+        <div class="bulk-bar hidden" id="bulkBar">
+          <span class="count" id="bulkCount">0 selected</span>
+          <select class="input" id="bulkStatus" style="width:auto;background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.25);font-size:12px;padding:6px 10px">
+            <option value="">Set status…</option>
+            <option value="Listed">Listed</option>
+            <option value="Semi Approved">Semi Approved</option>
+            <option value="Waitlist">Waitlist</option>
+            <option value="Approved">Approved</option>
+            <option value="Declined">Declined</option>
+            <option value="__remove__">— Remove from messaging</option>
+          </select>
+          <button class="btn" id="bulkSendOnly" title="Send email + SMS based on each guest's current Messaging Status (no status change)">Send to selected</button>
+          <button class="btn btn-gold" id="bulkConfirm" title="Set status to Approved AND send confirmation (only for Listed / Semi Approved)">Confirm &amp; send</button>
+          <button class="btn" id="bulkClear">Cancel</button>
         </div>
       </div>
 
@@ -417,13 +381,13 @@ function render() {
     });
   });
   tbody.querySelectorAll('[data-action="send"]').forEach(btn => {
-    btn.addEventListener('click', () => sendSingle(btn.dataset.id));
+    btn.addEventListener('click', () => sendSingle(btn.dataset.id, btn));
   });
   tbody.querySelectorAll('[data-action="confirm"]').forEach(btn => {
     btn.addEventListener('click', () => confirmSingle(btn.dataset.id, btn));
   });
   tbody.querySelectorAll('[data-action="resend"]').forEach(btn => {
-    btn.addEventListener('click', () => confirmSingle(btn.dataset.id, btn));  // same flow, idempotent
+    btn.addEventListener('click', () => sendSingle(btn.dataset.id, btn));  // resend = same template, no status change
   });
 
   document.getElementById('selectAll').addEventListener('change', e => {
@@ -589,26 +553,47 @@ async function setStatus(recordIds, status) {
 }
 
 // ============== CONFIRM / SEND ==============
-async function sendSingle(recordId) {
+// CONFIRM: sets Messaging Status = Approved AND sends. Used for "Confirm" button on Listed/Semi Approved.
+// SEND:    only sends, no status change. Used for "Send" (Waitlist) and "Resend" (already Approved).
+
+async function sendSingle(recordId, btnEl) {
+  if (btnEl) showSendingState(btnEl);
   await sendBulk([recordId]);
 }
 async function sendBulk(recordIds) {
-  // For now, "Send" is the same as "Confirm" — both call /api/messaging/confirm
-  // since that's the active flow. Future: branch by status.
-  await confirmBulk(recordIds);
+  if (recordIds.length === 0) return;
+  try {
+    const res = await fetch('/api/messaging/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const parts = [];
+    if (data.sent > 0) parts.push(`${data.sent} sent`);
+    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
+    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
+    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Nothing to send', data.failed?.length > 0 ? 'error' : 'success');
+    selectedIds.clear();
+    await loadGuests();
+  } catch (err) {
+    showToast('Send failed: ' + err.message, 'error');
+    await loadGuests();
+  }
 }
 
 async function confirmSingle(recordId, btnEl) {
-  if (btnEl) {
-    btnEl.disabled = true;
-    btnEl.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px"></span>Sending…';
-  }
+  if (btnEl) showSendingState(btnEl);
   await confirmBulk([recordId]);
 }
 
 async function confirmBulk(recordIds) {
   if (recordIds.length === 0) return;
-
   try {
     const res = await fetch('/api/messaging/confirm', {
       method: 'POST',
@@ -620,8 +605,8 @@ async function confirmBulk(recordIds) {
 
     const parts = [];
     if (data.confirmed > 0) parts.push(`${data.confirmed} confirmed`);
-    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''} sent`);
-    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS sent`);
+    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
+    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
     if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
     if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
 
@@ -630,8 +615,13 @@ async function confirmBulk(recordIds) {
     await loadGuests();
   } catch (err) {
     showToast('Confirm failed: ' + err.message, 'error');
-    await loadGuests(); // refresh anyway in case partial success
+    await loadGuests();
   }
+}
+
+function showSendingState(btnEl) {
+  btnEl.disabled = true;
+  btnEl.innerHTML = '<span style="display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px"></span>Sending…';
 }
 
 // ============== BULK BAR ==============
@@ -643,24 +633,31 @@ function bindBulkBar() {
     updateBulkBar();
   });
   document.getElementById('bulkStatus').addEventListener('change', async e => {
-    const newStatus = e.target.value;
+    const value = e.target.value;
     if (e.target.selectedIndex === 0) return; // placeholder
     if (selectedIds.size === 0) return;
     e.target.selectedIndex = 0;
 
     const ids = Array.from(selectedIds);
-    if (newStatus === '' && e.target.options[e.target.selectedIndex - 1]?.text?.includes('Remove')) {
-      // Remove from messaging - confirm
-      if (!confirm(`Remove ${ids.length} guest${ids.length>1?'s':''} from messaging?`)) {
-        return;
-      }
+    let newStatus;
+    if (value === '__remove__') {
+      if (!confirm(`Remove ${ids.length} guest${ids.length>1?'s':''} from messaging?`)) return;
+      newStatus = '';  // empty string clears Messaging Status
+    } else {
+      newStatus = value;
     }
     await setStatus(ids, newStatus);
   });
-  document.getElementById('bulkSend').addEventListener('click', async () => {
+  document.getElementById('bulkSendOnly').addEventListener('click', async () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
-    if (!confirm(`Send confirmation email + SMS to ${ids.length} guest${ids.length>1?'s':''}? Their status will be set to Approved.`)) return;
+    if (!confirm(`Send messages to ${ids.length} guest${ids.length>1?'s':''} based on their current status?\n\n• Approved → Confirmation email + SMS\n• Waitlist → Waitlist email + SMS\n• Other statuses → skipped`)) return;
+    await sendBulk(ids);
+  });
+  document.getElementById('bulkConfirm').addEventListener('click', async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Confirm ${ids.length} guest${ids.length>1?'s':''}? Status will be set to Approved and confirmation email + SMS will be sent.`)) return;
     await confirmBulk(ids);
   });
 }
@@ -668,10 +665,10 @@ function updateBulkBar() {
   const bar = document.getElementById('bulkBar');
   const count = selectedIds.size;
   if (count > 0) {
-    bar.classList.add('show');
+    bar.classList.remove('hidden');
     document.getElementById('bulkCount').textContent = `${count} selected`;
   } else {
-    bar.classList.remove('show');
+    bar.classList.add('hidden');
   }
 }
 </script>
