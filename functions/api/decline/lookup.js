@@ -1,4 +1,4 @@
-// deploy-marker 1778400136
+// deploy-marker 1778400849
 // GET /api/decline/lookup?token=...
 // Validates token. Returns the guest's name + whether already declined.
 // Does NOT change any state.

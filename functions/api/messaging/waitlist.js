@@ -1,16 +1,14 @@
 // deploy-marker 1778400849
-// POST /api/messaging/confirm
+// POST /api/messaging/waitlist
 // Body: { recordIds: string[] }
 // For each record:
-//   1. Set Messaging Status = "Approved"
-//   2. Generate decline token + plus-one token
-//   3. Save tokens to Airtable
-//   4. Send confirmation email (Resend) with personalized links
-//   5. Send confirmation SMS (Twilio) with opt-out link
-//   6. Update "Last Message Sent At" timestamp
+//   1. Set Messaging Status = "Waitlist"
+//   2. Generate decline token
+//   3. Save to Airtable
+//   4. Send waitlist email + SMS
 
 import { signToken, airtableGet, airtablePatch, sendEmail, sendSms, normalizePhone, jsonError, jsonOk, getBaseUrl } from '../../_lib/messaging-utils.js';
-import { renderConfirmationEmail, renderConfirmationSms } from '../../_lib/templates.js';
+import { renderWaitlistEmail, renderWaitlistSms } from '../../_lib/templates.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -26,11 +24,11 @@ export async function onRequestPost(context) {
 
   const recordIds = Array.isArray(body.recordIds) ? body.recordIds.filter(x => typeof x === 'string') : [];
   if (recordIds.length === 0) return jsonError('Missing recordIds', 400);
-  if (recordIds.length > 50) return jsonError('Too many records (max 50 at once)', 400);
+  if (recordIds.length > 50) return jsonError('Too many records (max 50)', 400);
 
   const baseUrl = getBaseUrl(request);
   const results = {
-    confirmed: 0,
+    waitlisted: 0,
     emailSent: 0,
     smsSent: 0,
     failed: [],
@@ -39,7 +37,6 @@ export async function onRequestPost(context) {
 
   for (const recordId of recordIds) {
     try {
-      // 1. Read record
       const record = await airtableGet(env, recordId);
       const f = record.fields || {};
 
@@ -52,25 +49,17 @@ export async function onRequestPost(context) {
         continue;
       }
 
-      // 2. Generate tokens (no expiry - links work until used)
+      // Generate decline token (no plus-one for waitlist guests)
       const declineToken = await signToken(
         { rid: recordId, p: 'decline', iat: Date.now() },
         env.SESSION_SECRET
       );
-      const plusOneToken = await signToken(
-        { rid: recordId, p: 'plusone', iat: Date.now() },
-        env.SESSION_SECRET
-      );
-
       const declineUrl = `${baseUrl}/decline?token=${encodeURIComponent(declineToken)}`;
-      const plusOneUrl = `${baseUrl}/plus-one?token=${encodeURIComponent(plusOneToken)}`;
 
-      // 3. Send email (Resend)
+      // Send Email
       let emailOk = false;
       try {
-        const emailContent = renderConfirmationEmail({
-          name, declineUrl, plusOneUrl
-        });
+        const emailContent = renderWaitlistEmail({ name, declineUrl });
         await sendEmail(env, {
           to: email,
           subject: emailContent.subject,
@@ -80,35 +69,34 @@ export async function onRequestPost(context) {
         emailOk = true;
         results.emailSent++;
       } catch (err) {
-        console.error(`Email failed for ${recordId}:`, err.message);
+        console.error(`Waitlist email failed for ${recordId}:`, err.message);
         results.failed.push({ id: recordId, channel: 'email', reason: err.message });
       }
 
-      // 4. Send SMS (Twilio) — only if phone exists and Twilio configured
+      // Send SMS
       let smsOk = false;
       if (phone && env.TWILIO_ACCOUNT_SID) {
         try {
-          const smsBody = renderConfirmationSms({ name, declineUrl });
+          const smsBody = renderWaitlistSms({ name, declineUrl });
           await sendSms(env, { to: phone, body: smsBody });
           smsOk = true;
           results.smsSent++;
         } catch (err) {
-          console.error(`SMS failed for ${recordId}:`, err.message);
+          console.error(`Waitlist SMS failed for ${recordId}:`, err.message);
           results.failed.push({ id: recordId, channel: 'sms', reason: err.message });
         }
       }
 
-      // 5. Update Airtable: Status, tokens, timestamp
+      // Update Airtable
       await airtablePatch(env, recordId, {
-        'Messaging Status': 'Approved',
+        'Messaging Status': 'Waitlist',
         'Decline Token': declineToken,
-        'Plus One Token': plusOneToken,
         'Last Message Sent At': new Date().toISOString()
       });
 
-      if (emailOk || smsOk) results.confirmed++;
+      if (emailOk || smsOk) results.waitlisted++;
     } catch (err) {
-      console.error(`Confirm failed for ${recordId}:`, err);
+      console.error(`Waitlist failed for ${recordId}:`, err);
       results.failed.push({ id: recordId, channel: 'general', reason: err.message });
     }
   }
