@@ -1,4 +1,4 @@
-// deploy-marker 1778400849
+// deploy-marker 1778406072
 // Shared utilities — all wrapped in IIFE to prevent global pollution.
 // Only `window.ChateauApp` is exposed.
 

@@ -1,19 +1,22 @@
-// deploy-marker 1778400849
+// deploy-marker 1778406072
 // POST /api/messaging/waitlist
 // Body: { recordIds: string[] }
-// For each record:
-//   1. Set Messaging Status = "Waitlist"
-//   2. Generate decline token
-//   3. Save to Airtable
-//   4. Send waitlist email + SMS
+//   1. Generate Decline Code (no plus-one for waitlist)
+//   2. Save + set Messaging Status = Waitlist
+//   3. Send waitlist email + SMS
 
-import { signToken, airtableGet, airtablePatch, sendEmail, sendSms, normalizePhone, jsonError, jsonOk, getBaseUrl } from '../../_lib/messaging-utils.js';
+import {
+  airtableGet, airtablePatch,
+  sendEmail, sendSms, normalizePhone,
+  generateUniqueCode,
+  jsonError, jsonOk
+} from '../../_lib/messaging-utils.js';
 import { renderWaitlistEmail, renderWaitlistSms } from '../../_lib/templates.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME', 'SESSION_SECRET', 'RESEND_API_KEY'];
+  const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME', 'RESEND_API_KEY'];
   for (const k of required) {
     if (!env[k]) return jsonError(`Missing env: ${k}`, 500);
   }
@@ -26,14 +29,7 @@ export async function onRequestPost(context) {
   if (recordIds.length === 0) return jsonError('Missing recordIds', 400);
   if (recordIds.length > 50) return jsonError('Too many records (max 50)', 400);
 
-  const baseUrl = getBaseUrl(request);
-  const results = {
-    waitlisted: 0,
-    emailSent: 0,
-    smsSent: 0,
-    failed: [],
-    skipped: []
-  };
+  const results = { waitlisted: 0, emailSent: 0, smsSent: 0, failed: [], skipped: [] };
 
   for (const recordId of recordIds) {
     try {
@@ -49,23 +45,12 @@ export async function onRequestPost(context) {
         continue;
       }
 
-      // Generate decline token (no plus-one for waitlist guests)
-      const declineToken = await signToken(
-        { rid: recordId, p: 'decline', iat: Date.now() },
-        env.SESSION_SECRET
-      );
-      const declineUrl = `${baseUrl}/decline?token=${encodeURIComponent(declineToken)}`;
+      const declineCode = await generateUniqueCode(env, 'Decline Code');
 
-      // Send Email
       let emailOk = false;
       try {
-        const emailContent = renderWaitlistEmail({ name, declineUrl });
-        await sendEmail(env, {
-          to: email,
-          subject: emailContent.subject,
-          html: emailContent.html,
-          text: emailContent.text
-        });
+        const c = renderWaitlistEmail({ name, declineCode });
+        await sendEmail(env, { to: email, subject: c.subject, html: c.html, text: c.text });
         emailOk = true;
         results.emailSent++;
       } catch (err) {
@@ -73,11 +58,10 @@ export async function onRequestPost(context) {
         results.failed.push({ id: recordId, channel: 'email', reason: err.message });
       }
 
-      // Send SMS
       let smsOk = false;
       if (phone && env.TWILIO_ACCOUNT_SID) {
         try {
-          const smsBody = renderWaitlistSms({ name, declineUrl });
+          const smsBody = renderWaitlistSms({ name, declineCode });
           await sendSms(env, { to: phone, body: smsBody });
           smsOk = true;
           results.smsSent++;
@@ -87,10 +71,9 @@ export async function onRequestPost(context) {
         }
       }
 
-      // Update Airtable
       await airtablePatch(env, recordId, {
         'Messaging Status': 'Waitlist',
-        'Decline Token': declineToken,
+        'Decline Code': declineCode,
         'Last Message Sent At': new Date().toISOString()
       });
 

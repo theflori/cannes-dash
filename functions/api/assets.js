@@ -1,4 +1,4 @@
-// deploy-marker 1778400849
+// deploy-marker 1778406072
 // GET /api/assets — lists all uploaded brand assets from R2
 //
 // Requires R2 binding configured in Cloudflare Pages:

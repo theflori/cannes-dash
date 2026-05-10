@@ -1,4 +1,4 @@
-// deploy-marker 1778400849
+// deploy-marker 1778406072
 // Protects everything except /login and /api/login
 // If user has valid session cookie -> pass through
 // Otherwise -> redirect to /login
@@ -8,12 +8,7 @@ export async function onRequest(context) {
   const url = new URL(request.url);
 
   // Public routes that don't need auth
-  const publicRoutes = [
-    '/login', '/api/login', '/api/logout', '/login.html',
-    '/decline', '/decline.html',
-    '/plus-one', '/plus-one.html',
-    '/api/decline', '/api/plus-one'
-  ];
+  const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html'];
   if (publicRoutes.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))) {
     return next();
   }

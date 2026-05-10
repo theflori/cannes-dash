@@ -1,4 +1,4 @@
-// deploy-marker 1778400849
+// deploy-marker 1778406072
 // Shared utilities for messaging — HMAC tokens, email & SMS senders
 
 // ============== TOKENS ==============
@@ -87,6 +87,38 @@ export async function airtableCreate(env, fields) {
     throw new Error(`Airtable CREATE ${res.status}: ${text.substring(0, 200)}`);
   }
   return await res.json();
+}
+
+// Generate a 6-character random code (lowercase + digits, ~2 billion combinations)
+export function generateCode() {
+  const chars = '0123456789abcdefghijklmnopqrstuvwxyz';
+  let code = '';
+  const buf = new Uint8Array(6);
+  crypto.getRandomValues(buf);
+  for (let i = 0; i < 6; i++) {
+    code += chars[buf[i] % 36];
+  }
+  return code;
+}
+
+// Generate a unique code that doesn't already exist in Airtable for the given field
+// Tries up to 5 times, then throws
+export async function generateUniqueCode(env, fieldName) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = generateCode();
+    const formula = encodeURIComponent(`{${fieldName}}="${code}"`);
+    const url = `https://api.airtable.com/v0/${env.AIRTABLE_BASE_ID}/${env.AIRTABLE_TABLE_NAME}?filterByFormula=${formula}&maxRecords=1`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${env.AIRTABLE_TOKEN}` }
+    });
+    if (!res.ok) {
+      // If lookup fails, return the code anyway (collision risk is tiny)
+      return code;
+    }
+    const data = await res.json();
+    if (!data.records || data.records.length === 0) return code;
+  }
+  throw new Error(`Could not generate unique ${fieldName}`);
 }
 
 // ============== RESEND ==============

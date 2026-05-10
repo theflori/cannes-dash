@@ -1,19 +1,17 @@
-// deploy-marker 1778400849
+// deploy-marker 1778406072
 // POST /api/messaging/send
 // Body: { recordIds: string[] }
-//
-// Reads each guest's current Messaging Status and sends the matching SMS+Email:
-//   - Approved → Confirmation flow (Email + SMS with decline + plus-one links)
-//   - Waitlist → Waitlist flow (Email + SMS with decline link only)
-//   - Listed / Semi Approved / Declined → SKIPPED (no template)
-//
-// Does NOT change Messaging Status. Only sends.
-// (Use /api/messaging/confirm to set status=Approved AND send in one step.)
+// Resends based on each record's current Messaging Status:
+//   - Approved → Confirmation email + SMS
+//   - Waitlist → Waitlist email + SMS
+//   - Other → skipped
+// Does NOT change status. Re-issues codes on every send.
 
 import {
-  signToken, airtableGet, airtablePatch,
+  airtableGet, airtablePatch,
   sendEmail, sendSms, normalizePhone,
-  jsonError, jsonOk, getBaseUrl
+  generateUniqueCode,
+  jsonError, jsonOk
 } from '../../_lib/messaging-utils.js';
 import {
   renderConfirmationEmail, renderConfirmationSms,
@@ -23,7 +21,7 @@ import {
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME', 'SESSION_SECRET', 'RESEND_API_KEY'];
+  const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME', 'RESEND_API_KEY'];
   for (const k of required) {
     if (!env[k]) return jsonError(`Missing env: ${k}`, 500);
   }
@@ -34,16 +32,9 @@ export async function onRequestPost(context) {
 
   const recordIds = Array.isArray(body.recordIds) ? body.recordIds.filter(x => typeof x === 'string') : [];
   if (recordIds.length === 0) return jsonError('Missing recordIds', 400);
-  if (recordIds.length > 50) return jsonError('Too many records (max 50 at once)', 400);
+  if (recordIds.length > 50) return jsonError('Too many records (max 50)', 400);
 
-  const baseUrl = getBaseUrl(request);
-  const results = {
-    sent: 0,
-    emailSent: 0,
-    smsSent: 0,
-    skipped: [],
-    failed: []
-  };
+  const results = { sent: 0, emailSent: 0, smsSent: 0, failed: [], skipped: [] };
 
   for (const recordId of recordIds) {
     try {
@@ -55,67 +46,40 @@ export async function onRequestPost(context) {
       const phone = normalizePhone(f['Phone'] || '');
       const name = f['Full Name'] || 'Guest';
 
-      // Skip if no template applies
       if (messagingStatus !== 'Approved' && messagingStatus !== 'Waitlist') {
-        results.skipped.push({
-          id: recordId,
-          reason: messagingStatus
-            ? `no-template-for-status:${messagingStatus}`
-            : 'no-messaging-status'
-        });
+        results.skipped.push({ id: recordId, reason: messagingStatus ? `no-template-for:${messagingStatus}` : 'no-status' });
         continue;
       }
-
       if (!email) {
         results.skipped.push({ id: recordId, reason: 'missing-email' });
         continue;
       }
 
-      // Generate (or reuse) decline + plus-one tokens
-      // We re-issue every send so old tokens that may have leaked can be invalidated
-      const declineToken = await signToken(
-        { rid: recordId, p: 'decline', iat: Date.now() },
-        env.SESSION_SECRET
-      );
-      const declineUrl = `${baseUrl}/decline?token=${encodeURIComponent(declineToken)}`;
+      // Re-issue codes
+      const declineCode = await generateUniqueCode(env, 'Decline Code');
+      const plusOneCode = messagingStatus === 'Approved'
+        ? await generateUniqueCode(env, 'Plus One Code')
+        : null;
 
-      let plusOneToken = '';
-      let plusOneUrl = '';
-      if (messagingStatus === 'Approved') {
-        plusOneToken = await signToken(
-          { rid: recordId, p: 'plusone', iat: Date.now() },
-          env.SESSION_SECRET
-        );
-        plusOneUrl = `${baseUrl}/plus-one?token=${encodeURIComponent(plusOneToken)}`;
-      }
-
-      // Pick templates
       let emailContent, smsBody;
       if (messagingStatus === 'Approved') {
-        emailContent = renderConfirmationEmail({ name, declineUrl, plusOneUrl });
-        smsBody = renderConfirmationSms({ name, declineUrl });
-      } else if (messagingStatus === 'Waitlist') {
-        emailContent = renderWaitlistEmail({ name, declineUrl });
-        smsBody = renderWaitlistSms({ name, declineUrl });
+        emailContent = renderConfirmationEmail({ name, declineCode, plusOneCode });
+        smsBody = renderConfirmationSms({ name, declineCode });
+      } else {
+        emailContent = renderWaitlistEmail({ name, declineCode });
+        smsBody = renderWaitlistSms({ name, declineCode });
       }
 
-      // Send Email
       let emailOk = false;
       try {
-        await sendEmail(env, {
-          to: email,
-          subject: emailContent.subject,
-          html: emailContent.html,
-          text: emailContent.text
-        });
+        await sendEmail(env, { to: email, subject: emailContent.subject, html: emailContent.html, text: emailContent.text });
         emailOk = true;
         results.emailSent++;
       } catch (err) {
-        console.error(`Email failed for ${recordId} (${messagingStatus}):`, err.message);
+        console.error(`Resend email failed for ${recordId}:`, err.message);
         results.failed.push({ id: recordId, channel: 'email', reason: err.message });
       }
 
-      // Send SMS (if phone + Twilio configured)
       let smsOk = false;
       if (phone && env.TWILIO_ACCOUNT_SID) {
         try {
@@ -123,17 +87,16 @@ export async function onRequestPost(context) {
           smsOk = true;
           results.smsSent++;
         } catch (err) {
-          console.error(`SMS failed for ${recordId} (${messagingStatus}):`, err.message);
+          console.error(`Resend SMS failed for ${recordId}:`, err.message);
           results.failed.push({ id: recordId, channel: 'sms', reason: err.message });
         }
       }
 
-      // Save tokens + timestamp (no status change)
       const updateFields = {
-        'Decline Token': declineToken,
+        'Decline Code': declineCode,
         'Last Message Sent At': new Date().toISOString()
       };
-      if (plusOneToken) updateFields['Plus One Token'] = plusOneToken;
+      if (plusOneCode) updateFields['Plus One Code'] = plusOneCode;
 
       await airtablePatch(env, recordId, updateFields);
 
