@@ -1,4 +1,4 @@
-// deploy-marker 1778434324
+// deploy-marker 1778497190
 // Email + SMS templates for messaging flows.
 // Dark Château Privé style — matches cannescastle email design.
 //
@@ -8,6 +8,21 @@ import { escapeHtml } from './messaging-utils.js';
 
 // Base URL where the public decline / plus-one pages live (cannescastle project)
 const PUBLIC_BASE = 'https://chateau-cannes.fraimit.com';
+
+// ============== EVENT CONFIG (single source of truth) ==============
+// To change the date, doors, or any detail, edit here and redeploy.
+// Address is the ONLY field that must NOT appear before the 24h reminder.
+const EVENT = {
+  dateFull: 'Friday, 15 May 2026',
+  dateShort: '15 May 2026',
+  dateSms: '15 May',
+  doors: '17:00',
+  doorsLabel: '17:00 — please be early',
+  city: 'Cannes Californie',
+  // Address — REVEALED ONLY IN 24H REMINDER. Never reference in other templates.
+  address: '43 Av. du Roi Albert 1er, 06400 Cannes',
+  addressMapsUrl: 'https://maps.google.com/?q=43+Av.+du+Roi+Albert+1er,+06400+Cannes'
+};
 
 // ============== HELPERS ==============
 
@@ -411,4 +426,259 @@ export function renderWaitlistSms({ name, declineCode }) {
 export function renderPlusOneWelcomeSms({ name, primaryName, declineCode }) {
   const firstName = (name || '').split(' ')[0] || '';
   return `${firstName ? firstName + ', ' : ''}${primaryName} added you to Château Privé · 15 May · Cannes. Details in your email. Can't make it? ${shortUrl(declineCode)}`;
+}
+
+// ============== EVENT UPDATE EMAIL ==============
+// Sent when event date or details change. Does NOT reveal address.
+export function renderEventUpdateEmail({ name, declineCode }) {
+  const firstName = (name || '').split(' ')[0] || 'there';
+  const subject = `Important update — Château Privé · ${EVENT.dateShort}`;
+  const declineUrl = shortUrl(declineCode);
+
+  const text = `Dear ${firstName},
+
+An important update regarding your invitation to Château Privé.
+
+Date: ${EVENT.dateFull}
+Doors: ${EVENT.doorsLabel}
+Place: ${EVENT.city}
+
+The exact address will be shared 24 hours before the event by SMS.
+
+All other details remain the same. Your invitation is still confirmed.
+
+If you can no longer attend with these details:
+${declineUrl}
+
+— Château Privé
+`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>${escapeHtml(subject)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@media only screen and (max-width: 620px) {
+  .container { width: 100% !important; }
+  .px-40 { padding-left: 24px !important; padding-right: 24px !important; }
+  .h1 { font-size: 30px !important; line-height: 1.15 !important; }
+  .details td { font-size: 14px !important; }
+  .details .lbl { width: 90px !important; padding-left: 20px !important; }
+  .details .val { padding-right: 20px !important; }
+}
+body { margin: 0; padding: 0; }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#0F0C09;font-family:'EB Garamond',Georgia,serif;color:#F1ECDF">
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0F0C09" style="background-color:#0F0C09">
+<tr><td align="center" style="padding:32px 16px">
+
+<table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#1A1612">
+
+<tr><td align="center" class="px-40" style="padding:20px 40px;border-bottom:1px solid rgba(241,236,223,0.12)">
+<table role="presentation" width="100%"><tr>
+<td align="left" style="font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:17px;color:#d4b884">Château Privé</td>
+<td align="right" style="font-family:'EB Garamond',Georgia,serif;font-size:10px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase">${escapeHtml(EVENT.dateShort)}</td>
+</tr></table>
+</td></tr>
+
+<tr><td class="px-40" align="left" style="padding:40px 40px 28px">
+<p style="margin:0 0 10px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Important update</p>
+<h1 class="h1" style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:36px;line-height:1.1;color:#d4b884;letter-spacing:-0.3px">A change to your invitation.</h1>
+</td></tr>
+
+<tr><td class="px-40" align="left" style="padding:0 40px 28px">
+<p style="margin:0 0 14px;font-family:'EB Garamond',Georgia,serif;font-size:16px;line-height:1.6;color:#F1ECDF">Dear ${escapeHtml(firstName)},</p>
+<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:16px;line-height:1.6;color:rgba(241,236,223,0.85)">
+We've made an important update to <span style="color:#F1ECDF">Château Privé</span>. Your invitation is still confirmed — please review the latest details below.
+</p>
+</td></tr>
+
+<tr><td class="px-40" style="padding:0 40px">
+<table role="presentation" class="details" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#231D17;border-top:1px solid rgba(241,236,223,0.12);border-bottom:1px solid rgba(241,236,223,0.12)">
+<tr>
+<td class="lbl" width="120" style="padding:16px 0 16px 24px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase;vertical-align:top">Date</td>
+<td class="val" style="padding:16px 24px 16px 0;font-family:'EB Garamond',Georgia,serif;font-size:15px;color:#F1ECDF;line-height:1.5">${escapeHtml(EVENT.dateFull)}</td>
+</tr>
+<tr><td colspan="2" style="border-top:1px solid rgba(241,236,223,0.08);line-height:0;font-size:0">&nbsp;</td></tr>
+<tr>
+<td class="lbl" style="padding:16px 0 16px 24px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase;vertical-align:top">Place</td>
+<td class="val" style="padding:16px 24px 16px 0;font-family:'EB Garamond',Georgia,serif;font-size:15px;color:#F1ECDF;line-height:1.5">${escapeHtml(EVENT.city)}</td>
+</tr>
+<tr><td colspan="2" style="border-top:1px solid rgba(241,236,223,0.08);line-height:0;font-size:0">&nbsp;</td></tr>
+<tr>
+<td class="lbl" style="padding:16px 0 16px 24px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase;vertical-align:top">Doors</td>
+<td class="val" style="padding:16px 24px 16px 0;font-family:'EB Garamond',Georgia,serif;font-size:15px;color:#F1ECDF;line-height:1.5"><strong style="color:#d4b884">${escapeHtml(EVENT.doors)}</strong> &mdash; please be early</td>
+</tr>
+</table>
+</td></tr>
+
+<tr><td class="px-40" align="center" style="padding:18px 40px 0">
+<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:12px;line-height:1.6;color:rgba(241,236,223,0.55);font-style:italic">The exact address will be shared 24 hours before the event by SMS.</p>
+</td></tr>
+
+<tr><td class="px-40" align="center" style="padding:24px 40px 36px">
+<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:12px;color:rgba(241,236,223,0.55)">
+Can no longer attend? <a href="${escapeHtml(declineUrl)}" style="color:#d4b884;text-decoration:underline">Let us know</a>
+</p>
+</td></tr>
+
+<tr><td align="center" class="px-40" style="padding:24px 40px 32px;border-top:1px solid rgba(241,236,223,0.12);background-color:#0F0C09">
+<p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:16px;color:#d4b884">Château Privé</p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>`;
+
+  return { subject, text, html };
+}
+
+export function renderEventUpdateSms({ name, declineCode }) {
+  const firstName = (name || '').split(' ')[0] || '';
+  return `${firstName ? firstName + ', ' : ''}update for Château Privé · ${EVENT.dateSms} · doors ${EVENT.doors}. Check email. Can't attend? ${shortUrl(declineCode)}`;
+}
+
+// ============== 24H REMINDER EMAIL ==============
+// Sent ~24h before event. REVEALS THE ADDRESS. Contains QR placeholder.
+export function render24hReminderEmail({ name, declineCode, qrCodeImageUrl }) {
+  const firstName = (name || '').split(' ')[0] || 'there';
+  const subject = `Tomorrow — Château Privé · ${EVENT.dateShort}`;
+  const declineUrl = shortUrl(declineCode);
+
+  // QR placeholder — empty by default, fills when door-check-in system is ready
+  const qrBlock = qrCodeImageUrl
+    ? `<tr><td class="px-40" align="center" style="padding:32px 40px 0">
+<p style="margin:0 0 12px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Your entry pass</p>
+<img src="${escapeHtml(qrCodeImageUrl)}" alt="Entry QR" width="200" height="200" style="display:block;margin:0 auto;background:#F1ECDF;padding:12px">
+<p style="margin:14px 0 0;font-family:'EB Garamond',Georgia,serif;font-size:12px;color:rgba(241,236,223,0.6)">Show this at the door.</p>
+</td></tr>`
+    : '';
+
+  const text = `Dear ${firstName},
+
+A reminder for tomorrow.
+
+DATE: ${EVENT.dateFull}
+DOORS: ${EVENT.doorsLabel}
+ADDRESS: ${EVENT.address}
+Map: ${EVENT.addressMapsUrl}
+
+For verification at the door, please bring:
+- A government-issued ID
+- Have your Instagram handle ready
+
+If you can no longer attend:
+${declineUrl}
+
+See you tomorrow.
+
+— Château Privé
+`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>${escapeHtml(subject)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@media only screen and (max-width: 620px) {
+  .container { width: 100% !important; }
+  .px-40 { padding-left: 24px !important; padding-right: 24px !important; }
+  .h1 { font-size: 30px !important; line-height: 1.15 !important; }
+  .details td { font-size: 14px !important; }
+  .details .lbl { width: 90px !important; padding-left: 20px !important; }
+  .details .val { padding-right: 20px !important; }
+}
+body { margin: 0; padding: 0; }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#0F0C09;font-family:'EB Garamond',Georgia,serif;color:#F1ECDF">
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0F0C09" style="background-color:#0F0C09">
+<tr><td align="center" style="padding:32px 16px">
+
+<table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background-color:#1A1612">
+
+<tr><td align="center" class="px-40" style="padding:20px 40px;border-bottom:1px solid rgba(241,236,223,0.12)">
+<table role="presentation" width="100%"><tr>
+<td align="left" style="font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:17px;color:#d4b884">Château Privé</td>
+<td align="right" style="font-family:'EB Garamond',Georgia,serif;font-size:10px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase">${escapeHtml(EVENT.dateShort)}</td>
+</tr></table>
+</td></tr>
+
+<tr><td class="px-40" align="left" style="padding:40px 40px 28px">
+<p style="margin:0 0 10px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Tomorrow</p>
+<h1 class="h1" style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:36px;line-height:1.1;color:#d4b884;letter-spacing:-0.3px">See you tomorrow.</h1>
+</td></tr>
+
+<tr><td class="px-40" align="left" style="padding:0 40px 28px">
+<p style="margin:0 0 14px;font-family:'EB Garamond',Georgia,serif;font-size:16px;line-height:1.6;color:#F1ECDF">Dear ${escapeHtml(firstName)},</p>
+<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:16px;line-height:1.6;color:rgba(241,236,223,0.85)">
+A quick reminder for <span style="color:#F1ECDF">Château Privé</span> tomorrow, with the full address.
+</p>
+</td></tr>
+
+<tr><td class="px-40" style="padding:0 40px">
+<table role="presentation" class="details" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#231D17;border-top:1px solid rgba(241,236,223,0.12);border-bottom:1px solid rgba(241,236,223,0.12)">
+<tr>
+<td class="lbl" width="120" style="padding:16px 0 16px 24px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase;vertical-align:top">Date</td>
+<td class="val" style="padding:16px 24px 16px 0;font-family:'EB Garamond',Georgia,serif;font-size:15px;color:#F1ECDF;line-height:1.5">${escapeHtml(EVENT.dateFull)}</td>
+</tr>
+<tr><td colspan="2" style="border-top:1px solid rgba(241,236,223,0.08);line-height:0;font-size:0">&nbsp;</td></tr>
+<tr>
+<td class="lbl" style="padding:16px 0 16px 24px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase;vertical-align:top">Doors</td>
+<td class="val" style="padding:16px 24px 16px 0;font-family:'EB Garamond',Georgia,serif;font-size:15px;color:#F1ECDF;line-height:1.5"><strong style="color:#d4b884">${escapeHtml(EVENT.doors)}</strong> &mdash; please be early</td>
+</tr>
+<tr><td colspan="2" style="border-top:1px solid rgba(241,236,223,0.08);line-height:0;font-size:0">&nbsp;</td></tr>
+<tr>
+<td class="lbl" style="padding:16px 0 16px 24px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase;vertical-align:top">Address</td>
+<td class="val" style="padding:16px 24px 16px 0;font-family:'EB Garamond',Georgia,serif;font-size:15px;color:#F1ECDF;line-height:1.5">
+${escapeHtml(EVENT.address)}<br>
+<a href="${escapeHtml(EVENT.addressMapsUrl)}" style="color:#d4b884;text-decoration:underline;font-size:13px">Open in Google Maps</a>
+</td>
+</tr>
+</table>
+</td></tr>
+
+${qrBlock}
+
+<tr><td class="px-40" align="left" style="padding:32px 40px 0">
+<p style="margin:0 0 10px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">At the door</p>
+<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.65;color:rgba(241,236,223,0.85)">
+For verification, please bring:<br>
+&middot; A government-issued ID<br>
+&middot; Have your Instagram handle ready
+</p>
+</td></tr>
+
+<tr><td class="px-40" align="center" style="padding:32px 40px 36px">
+<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:12px;color:rgba(241,236,223,0.55)">
+Can no longer attend? <a href="${escapeHtml(declineUrl)}" style="color:#d4b884;text-decoration:underline">Let us know</a>
+</p>
+</td></tr>
+
+<tr><td align="center" class="px-40" style="padding:24px 40px 32px;border-top:1px solid rgba(241,236,223,0.12);background-color:#0F0C09">
+<p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:16px;color:#d4b884">Château Privé</p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>`;
+
+  return { subject, text, html };
+}
+
+export function render24hReminderSms({ name, declineCode }) {
+  const firstName = (name || '').split(' ')[0] || '';
+  // SMS reveals the address in the 24h reminder
+  return `${firstName ? firstName + ', ' : ''}tomorrow at Château Privé · ${EVENT.address} · doors ${EVENT.doors}. Bring ID + IG handle. Can't attend? ${shortUrl(declineCode)}`;
 }

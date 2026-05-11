@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778493934 -->
+<!-- deploy-marker 1778497190 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -277,6 +277,36 @@
         </div>
       </div>
 
+      <!-- BROADCAST ACTIONS — to all Approved guests -->
+      <div class="card broadcast-section" id="broadcastSection" style="margin-top:28px;padding:24px;border:1px solid var(--hairline);background:rgba(184,150,90,0.04)">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0 0 4px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--ink)">Broadcast actions</h2>
+            <p style="margin:0;font-size:13px;color:var(--ink-soft);line-height:1.5">Send to <strong id="broadcastCount">—</strong> approved guests.</p>
+          </div>
+        </div>
+
+        <div class="broadcast-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <!-- Event Update -->
+          <div class="broadcast-card" style="padding:18px;background:#fff;border:1px solid var(--hairline);border-radius:6px">
+            <div style="font-family:'Inter',sans-serif;font-size:11px;color:#D4A744;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Event update</div>
+            <div style="font-size:14px;color:var(--ink);margin-bottom:6px;font-weight:500">Notify of date/time change</div>
+            <div style="font-size:12px;color:var(--ink-soft);line-height:1.55;margin-bottom:14px">Sends updated event details (no address). Use if the event is moved.</div>
+            <div style="font-size:11px;color:var(--ink-faint);margin-bottom:14px" id="eventUpdateMeta">—</div>
+            <button class="btn" id="btnEventUpdate" style="width:100%;border-color:#D4A744;color:#D4A744">Send event update</button>
+          </div>
+
+          <!-- 24h Reminder -->
+          <div class="broadcast-card" style="padding:18px;background:#fff;border:1px solid var(--hairline);border-radius:6px">
+            <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--gold-deep);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">24h reminder</div>
+            <div style="font-size:14px;color:var(--ink);margin-bottom:6px;font-weight:500">Send the day before event</div>
+            <div style="font-size:12px;color:var(--ink-soft);line-height:1.55;margin-bottom:14px"><strong style="color:#c47466">REVEALS the address</strong> + dress code reminder. Only use on the day before.</div>
+            <div style="font-size:11px;color:var(--ink-faint);margin-bottom:14px" id="reminder24hMeta">—</div>
+            <button class="btn btn-gold" id="btn24hReminder" style="width:100%">Send 24h reminder</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -317,8 +347,79 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('reloadBtn').addEventListener('click', loadGuests);
   bindFilters();
   bindBulkBar();
+  bindBroadcastButtons();
   await loadGuests();
 });
+
+// ============== BROADCAST ACTIONS ==============
+function bindBroadcastButtons() {
+  document.getElementById('btnEventUpdate').addEventListener('click', async () => {
+    const approved = messagingGuests.filter(g => g.messagingStatus === 'Approved');
+    if (approved.length === 0) return;
+    const msg = `Send EVENT UPDATE to all ${approved.length} approved guest${approved.length !== 1 ? 's' : ''}?\n\nThis informs them of a date/details change. The address is NOT revealed in this email.\n\nProceed?`;
+    if (!confirm(msg)) return;
+
+    const btn = document.getElementById('btnEventUpdate');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/messaging/send-event-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const parts = [];
+      if (data.notified > 0) parts.push(`${data.notified} notified`);
+      if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent !== 1 ? 's' : ''}`);
+      if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+      if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+      showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
+      await loadGuests();
+    } catch (err) {
+      showToast('Event update failed: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send event update';
+    }
+  });
+
+  document.getElementById('btn24hReminder').addEventListener('click', async () => {
+    const approved = messagingGuests.filter(g => g.messagingStatus === 'Approved');
+    if (approved.length === 0) return;
+    const msg = `Send 24H REMINDER to all ${approved.length} approved guest${approved.length !== 1 ? 's' : ''}?\n\nThis REVEALS THE ADDRESS and is meant for the day before the event.\n\nAre you sure?`;
+    if (!confirm(msg)) return;
+    // Second confirmation because this reveals the address
+    const msg2 = `Final confirmation — address will be sent now.\n\nContinue?`;
+    if (!confirm(msg2)) return;
+
+    const btn = document.getElementById('btn24hReminder');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/messaging/send-24h-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const parts = [];
+      if (data.notified > 0) parts.push(`${data.notified} notified`);
+      if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent !== 1 ? 's' : ''}`);
+      if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+      if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+      showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
+      await loadGuests();
+    } catch (err) {
+      showToast('24h reminder failed: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Send 24h reminder';
+    }
+  });
+}
 
 // ============== LOAD ==============
 async function loadGuests() {
@@ -352,6 +453,34 @@ function renderCounts() {
   document.getElementById('headerMeta').textContent =
     `${counts.all} guest${counts.all !== 1 ? 's' : ''} in messaging` +
     (counts.Approved > 0 ? ` · ${counts.Approved} approved` : '');
+
+  // Broadcast section
+  document.getElementById('broadcastCount').textContent = counts.Approved;
+  renderBroadcastMeta();
+}
+
+function renderBroadcastMeta() {
+  const approved = messagingGuests.filter(g => g.messagingStatus === 'Approved');
+  const eventUpdated = approved.filter(g => g.lastEventUpdateSentAt).length;
+  const reminderSent = approved.filter(g => g.reminder24hSentAt).length;
+  const evEl = document.getElementById('eventUpdateMeta');
+  const rmEl = document.getElementById('reminder24hMeta');
+  if (evEl) {
+    evEl.textContent = approved.length > 0
+      ? `${eventUpdated} of ${approved.length} have been notified of a change`
+      : 'No approved guests yet';
+  }
+  if (rmEl) {
+    rmEl.textContent = approved.length > 0
+      ? `${reminderSent} of ${approved.length} have received the 24h reminder`
+      : 'No approved guests yet';
+  }
+
+  // Disable buttons if no approved guests
+  const evBtn = document.getElementById('btnEventUpdate');
+  const rmBtn = document.getElementById('btn24hReminder');
+  if (evBtn) evBtn.disabled = approved.length === 0;
+  if (rmBtn) rmBtn.disabled = approved.length === 0;
 }
 
 function render() {
