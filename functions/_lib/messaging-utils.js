@@ -1,4 +1,4 @@
-// deploy-marker 1778406072
+// deploy-marker 1778506899
 // Shared utilities for messaging — HMAC tokens, email & SMS senders
 
 // ============== TOKENS ==============
@@ -216,4 +216,41 @@ export function getBaseUrl(request) {
 export function escapeHtml(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ============== ERROR TRACKING ==============
+// Helpers to mark send success / failure on a guest record.
+// Used by all send endpoints to populate Last Send Error fields.
+
+// Call when email FAILS (most critical - email is the primary channel)
+export async function markSendError(env, recordId, message) {
+  try {
+    await airtablePatch(env, recordId, {
+      'Last Send Error': String(message || 'Unknown error').slice(0, 500),
+      'Last Send Error At': new Date().toISOString(),
+      'Last Send Error Level': 'error'
+    });
+  } catch {}
+}
+
+// Call when ONLY SMS fails (email worked - less critical)
+export async function markSendWarning(env, recordId, message) {
+  try {
+    await airtablePatch(env, recordId, {
+      'Last Send Error': String(message || 'SMS warning').slice(0, 500),
+      'Last Send Error At': new Date().toISOString(),
+      'Last Send Error Level': 'warning'
+    });
+  } catch {}
+}
+
+// Call on full success - clears the error fields
+export async function clearSendError(env, recordId) {
+  try {
+    await airtablePatch(env, recordId, {
+      'Last Send Error': '',
+      'Last Send Error At': null,
+      'Last Send Error Level': ''
+    });
+  } catch {}
 }

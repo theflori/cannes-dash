@@ -1,4 +1,4 @@
-// deploy-marker 1778406072
+// deploy-marker 1778506899
 // POST /api/messaging/confirm
 // Body: { recordIds: string[] }
 // For each record:
@@ -10,6 +10,7 @@ import {
   airtableGet, airtablePatch,
   sendEmail, sendSms, normalizePhone,
   generateUniqueCode,
+  markSendError, markSendWarning, clearSendError,
   jsonError, jsonOk
 } from '../../_lib/messaging-utils.js';
 import { renderConfirmationEmail, renderConfirmationSms } from '../../_lib/templates.js';
@@ -86,6 +87,15 @@ export async function onRequestPost(context) {
         'Plus One Code': plusOneCode,
         'Last Message Sent At': new Date().toISOString()
       });
+
+      // Track outcome on the guest record (visible in dashboard)
+      if (!emailOk) {
+        await markSendError(env, recordId, 'Confirm email failed: ' + (results.failed.find(x=>x.id===recordId && x.channel==='email')?.reason || 'unknown'));
+      } else if (phone && env.TWILIO_ACCOUNT_SID && !smsOk) {
+        await markSendWarning(env, recordId, 'SMS failed (email ok): ' + (results.failed.find(x=>x.id===recordId && x.channel==='sms')?.reason || 'unknown'));
+      } else {
+        await clearSendError(env, recordId);
+      }
 
       if (emailOk || smsOk) results.confirmed++;
     } catch (err) {

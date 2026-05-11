@@ -1,4 +1,4 @@
-// deploy-marker event-update-v1
+// deploy-marker 1778506899
 // POST /api/messaging/send-event-update
 // Body: { recordIds?: string[] }  (optional - if missing, sends to ALL Approved)
 //
@@ -10,6 +10,7 @@ import {
   airtableGet, airtablePatch,
   sendEmail, sendSms, normalizePhone,
   generateUniqueCode,
+  markSendError, markSendWarning, clearSendError,
   jsonError, jsonOk
 } from '../../_lib/messaging-utils.js';
 import { renderEventUpdateEmail, renderEventUpdateSms } from '../../_lib/templates.js';
@@ -103,6 +104,15 @@ export async function onRequestPost(context) {
       };
       if (!f['Decline Code']) updateFields['Decline Code'] = declineCode;
       await airtablePatch(env, recordId, updateFields);
+
+      // Track outcome
+      if (!emailOk) {
+        await markSendError(env, recordId, 'Event update email failed: ' + (results.failed.find(x=>x.id===recordId && x.channel==='email')?.reason || 'unknown'));
+      } else if (phone && env.TWILIO_ACCOUNT_SID && !smsOk) {
+        await markSendWarning(env, recordId, 'SMS failed (email ok): ' + (results.failed.find(x=>x.id===recordId && x.channel==='sms')?.reason || 'unknown'));
+      } else {
+        await clearSendError(env, recordId);
+      }
 
       if (emailOk || smsOk) results.notified++;
     } catch (err) {

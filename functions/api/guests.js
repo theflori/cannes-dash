@@ -1,4 +1,4 @@
-// deploy-marker 1778502875
+// deploy-marker 1778506899
 // GET /api/guests
 // Returns all RSVP records from Airtable as JSON
 
@@ -83,6 +83,9 @@ function formatRecord(record) {
     lastMessageSentAt: f['Last Message Sent At'] || '',
     lastEventUpdateSentAt: f['Last Event Update Sent At'] || '',
     reminder24hSentAt: f['24h Reminder Sent At'] || '',
+    lastSendError: f['Last Send Error'] || '',
+    lastSendErrorAt: f['Last Send Error At'] || '',
+    lastSendErrorLevel: f['Last Send Error Level'] || '',  // 'error' | 'warning' | ''
     createdTime: record.createdTime
   };
 }
