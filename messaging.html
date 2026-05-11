@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778503298 -->
+<!-- deploy-marker 1778504955 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -207,11 +207,23 @@
 
     <div class="page-content">
 
-      <!-- Search -->
+      <!-- Search + filters -->
       <div class="filter-bar" style="margin-bottom:14px">
         <div class="grow">
           <input type="text" class="input input-search" id="searchInput" placeholder="Search by name, email, IG, company, referrer…">
         </div>
+        <select class="input" id="privacyFilter" style="width:auto" title="Filter by Instagram profile privacy">
+          <option value="">All privacy</option>
+          <option value="public">Public only</option>
+          <option value="private">Private only</option>
+          <option value="unknown">Unknown</option>
+        </select>
+        <select class="input" id="followersFilter" style="width:auto" title="Filter by follower count">
+          <option value="">All followers</option>
+          <option value="over5k">Over 5K followers</option>
+          <option value="under5k">Under 5K followers</option>
+          <option value="nodata">No IG data</option>
+        </select>
       </div>
 
       <!-- Filter pills -->
@@ -339,6 +351,8 @@ let allGuests = [];
 let messagingGuests = [];
 let currentFilter = 'all';
 let searchQuery = '';
+let privacyFilter = '';
+let followersFilter = '';
 let sortKey = 'default';  // 'default' = Approved-first stack-order; otherwise column name
 let sortDir = 'asc';
 let selectedIds = new Set();
@@ -505,6 +519,16 @@ function render() {
       return haystack.includes(query);
     });
   }
+
+  // Privacy filter
+  if (privacyFilter === 'public') rows = rows.filter(g => g.igIsPrivate === false);
+  else if (privacyFilter === 'private') rows = rows.filter(g => g.igIsPrivate === true);
+  else if (privacyFilter === 'unknown') rows = rows.filter(g => g.igIsPrivate === null || g.igIsPrivate === undefined);
+
+  // Followers filter
+  if (followersFilter === 'over5k') rows = rows.filter(g => typeof g.igFollowers === 'number' && g.igFollowers >= 5000);
+  else if (followersFilter === 'under5k') rows = rows.filter(g => typeof g.igFollowers === 'number' && g.igFollowers < 5000);
+  else if (followersFilter === 'nodata') rows = rows.filter(g => g.igFollowers === null || g.igFollowers === undefined);
 
   // Sort: respect user-clicked column, otherwise default = Approved first then name
   rows = [...rows].sort((a, b) => {
@@ -697,6 +721,18 @@ function bindFilters() {
       searchQuery = e.target.value;
       render();
     }, 120);
+  });
+
+  // Privacy filter
+  document.getElementById('privacyFilter').addEventListener('change', e => {
+    privacyFilter = e.target.value;
+    render();
+  });
+
+  // Followers filter
+  document.getElementById('followersFilter').addEventListener('change', e => {
+    followersFilter = e.target.value;
+    render();
   });
 
   // Sortable column headers — click to sort
