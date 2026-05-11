@@ -152,11 +152,18 @@ export async function sendSms(env, { to, body }) {
     throw new Error('Twilio credentials not configured');
   }
 
+  // Hard-sanitize the destination number to E.164 (no spaces, dashes, parens).
+  // Twilio rejects formatted numbers like "+45 22 15 34 00" — must be "+4522153400".
+  const sanitizedTo = sanitizeE164(to);
+  if (!sanitizedTo) {
+    throw new Error(`Invalid phone number for SMS: "${to}"`);
+  }
+
   const url = `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`;
   const auth = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
 
   const params = new URLSearchParams();
-  params.append('To', to);
+  params.append('To', sanitizedTo);
   params.append('From', env.TWILIO_PHONE_NUMBER);
   params.append('Body', body);
 
@@ -178,6 +185,22 @@ export async function sendSms(env, { to, body }) {
 }
 
 // ============== PHONE NORMALIZATION ==============
+
+// Strict E.164 sanitization for outbound SMS. Removes spaces, dashes, parens,
+// dots, and any other non-digit characters except the leading +.
+// Returns "" if the result is not a valid E.164 number.
+export function sanitizeE164(input) {
+  if (!input) return '';
+  let s = String(input).trim();
+  // Convert "00..." prefix to "+..."
+  if (s.startsWith('00')) s = '+' + s.slice(2);
+  // Strip everything that isn't digit or leading +
+  const hasPlus = s.startsWith('+');
+  const digits = s.replace(/[^\d]/g, '');
+  if (!digits) return '';
+  if (digits.length < 8 || digits.length > 15) return '';
+  return (hasPlus ? '+' : '+') + digits;
+}
 
 export function normalizePhone(raw) {
   if (!raw) return '';
