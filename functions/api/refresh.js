@@ -1,4 +1,4 @@
-// deploy-marker 1778406072
+// deploy-marker 1778502875
 // POST /api/refresh
 // Body: { recordIds?: string[], onlyMissing?: boolean }
 // Triggers Apify scrape for all (or selected) profiles, writes follower count + avatar URL back to Airtable
@@ -61,7 +61,8 @@ export async function onRequestPost(context) {
     if (!h) continue;
     dataByHandle[h] = {
       followers: item.followersCount ?? null,
-      avatarUrl: item.profilePicUrlHD || item.profilePicUrl || ''
+      avatarUrl: item.profilePicUrlHD || item.profilePicUrl || '',
+      isPrivate: item.private === true || item.isPrivate === true  // Apify returns "private" or "isPrivate"
     };
   }
 
@@ -78,6 +79,7 @@ export async function onRequestPost(context) {
       fields: {
         'IG Followers': d.followers,
         'IG Avatar URL': d.avatarUrl,
+        'IG Private': d.isPrivate,
         'IG Last Refresh': now
       }
     });

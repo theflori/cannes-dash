@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778493934 -->
+<!-- deploy-marker 1778503298 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,6 +60,12 @@
           <option value="">All tags</option>
         </select>
         <input type="number" class="input" id="minFollowers" placeholder="Min followers" min="0" style="width:140px">
+        <select class="input" id="privacyFilter" style="width:auto" title="Filter by Instagram profile privacy">
+          <option value="">All privacy</option>
+          <option value="public">Public only</option>
+          <option value="private">Private only</option>
+          <option value="unknown">Unknown</option>
+        </select>
         <select class="input" id="sortPreset" style="width:auto">
           <option value="createdTime:desc">Newest first</option>
           <option value="createdTime:asc">Oldest first</option>
@@ -68,6 +74,8 @@
           <option value="name:asc">Name A→Z</option>
           <option value="name:desc">Name Z→A</option>
           <option value="status:asc">Status</option>
+          <option value="privacy:asc">Private first</option>
+          <option value="privacy:desc">Public first</option>
         </select>
         <button class="btn btn-ghost btn-sm" id="resetFiltersBtn">Reset</button>
       </div>
@@ -78,9 +86,9 @@
         <select class="input" id="bulkStatus" style="width:auto;background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.25)">
           <option value="">Set status…</option>
         </select>
-        <button class="btn" id="bulkListMessaging" style="background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:500" title="Add selected to Messaging (skips guests already in messaging)">
+        <button class="btn" id="bulkListMessaging" style="background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:500" title="Add selected to Invites (skips guests already in invites)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          List for Messaging
+          List for Invites
         </button>
         <button class="btn" id="bulkDeselectBtn">Clear</button>
       </div>
@@ -146,7 +154,7 @@ const STATUS_PILL = {
 let allGuests = [];
 let sortKey = 'createdTime';
 let sortDir = 'desc';
-let filters = { search: '', status: '', tag: '', minFollowers: 0 };
+let filters = { search: '', status: '', tag: '', minFollowers: 0, privacy: '' };
 let selectedIds = new Set();
 
 // ============== INIT ==============
@@ -270,7 +278,7 @@ function rowHtml(g) {
 
   // Messaging indicator: shown when guest is already in the messaging workflow
   const msgIndicator = g.messagingStatus
-    ? `<a href="/messaging" class="msg-indicator msg-${g.messagingStatus.toLowerCase().replace(/\s/g, '-')}" title="In messaging: ${escapeAttr(g.messagingStatus)} — click to open messaging" onclick="event.stopPropagation()">
+    ? `<a href="/messaging" class="msg-indicator msg-${g.messagingStatus.toLowerCase().replace(/\s/g, '-')}" title="In invites: ${escapeAttr(g.messagingStatus)} — click to open invites" onclick="event.stopPropagation()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
        </a>`
     : '';
@@ -282,8 +290,12 @@ function rowHtml(g) {
   const igDisplay = g.instagram && g.instagram.length > 30
     ? escapeHtml(g.instagram.substring(0, 30)) + '…'
     : escapeHtml(g.instagram);
+  // Lock icon prefix when profile is private — placed OUTSIDE ig-handle so it doesn't trigger ellipsis
+  const lockIcon = g.igIsPrivate === true
+    ? `<svg class="ig-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Private profile" width="12" height="12" style="flex-shrink:0;color:#c47466"><title>Private profile</title><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
+    : '';
   const igCell = g.instagram
-    ? `<div class="ig-cell" data-id="${g.id}"><span class="ig-handle" title="@${escapeAttr(g.instagram)}"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${igDisplay}</a></span>${editBtn}</div>`
+    ? `<div class="ig-cell" data-id="${g.id}">${lockIcon}<span class="ig-handle" title="${g.igIsPrivate === true ? 'Private — ' : ''}@${escapeAttr(g.instagram)}"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${igDisplay}</a></span>${editBtn}</div>`
     : `<div class="ig-cell" data-id="${g.id}"><span class="muted">—</span>${editBtn}</div>`;
 
   const referralHtml = g.referredBy
@@ -335,6 +347,9 @@ function applyFilters(list) {
     if (filters.minFollowers > 0) {
       if (g.igFollowers === null || g.igFollowers < filters.minFollowers) return false;
     }
+    if (filters.privacy === 'public' && g.igIsPrivate !== false) return false;
+    if (filters.privacy === 'private' && g.igIsPrivate !== true) return false;
+    if (filters.privacy === 'unknown' && g.igIsPrivate !== null) return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
       const haystack = [g.name, g.email, g.instagram, g.company, g.referredBy, g.notes].join(' ').toLowerCase();
@@ -346,11 +361,18 @@ function applyFilters(list) {
 
 function sortRows(list) {
   return [...list].sort((a, b) => {
-    let av = a[sortKey], bv = b[sortKey];
-    if (av === null || av === undefined || av === '') av = sortDir === 'asc' ? Infinity : -Infinity;
-    if (bv === null || bv === undefined || bv === '') bv = sortDir === 'asc' ? Infinity : -Infinity;
-    if (typeof av === 'string') av = av.toLowerCase();
-    if (typeof bv === 'string') bv = bv.toLowerCase();
+    let av, bv;
+    if (sortKey === 'privacy') {
+      // Map to numeric: private=2, public=1, unknown=0
+      av = a.igIsPrivate === true ? 2 : a.igIsPrivate === false ? 1 : 0;
+      bv = b.igIsPrivate === true ? 2 : b.igIsPrivate === false ? 1 : 0;
+    } else {
+      av = a[sortKey]; bv = b[sortKey];
+      if (av === null || av === undefined || av === '') av = sortDir === 'asc' ? Infinity : -Infinity;
+      if (bv === null || bv === undefined || bv === '') bv = sortDir === 'asc' ? Infinity : -Infinity;
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+    }
     if (av < bv) return sortDir === 'asc' ? -1 : 1;
     if (av > bv) return sortDir === 'asc' ? 1 : -1;
     return 0;
@@ -411,18 +433,23 @@ function bindEvents() {
     filters.minFollowers = parseInt(e.target.value) || 0;
     render();
   });
+  document.getElementById('privacyFilter').addEventListener('change', e => {
+    filters.privacy = e.target.value;
+    render();
+  });
   document.getElementById('sortPreset').addEventListener('change', e => {
     const [key, dir] = e.target.value.split(':');
     sortKey = key; sortDir = dir;
     render();
   });
   document.getElementById('resetFiltersBtn').addEventListener('click', () => {
-    filters = { search: '', status: '', tag: '', minFollowers: 0 };
+    filters = { search: '', status: '', tag: '', minFollowers: 0, privacy: '' };
     sortKey = 'createdTime'; sortDir = 'desc';
     document.getElementById('searchInput').value = '';
     document.getElementById('statusFilter').value = '';
     document.getElementById('tagFilter').value = '';
     document.getElementById('minFollowers').value = '';
+    document.getElementById('privacyFilter').value = '';
     document.getElementById('sortPreset').value = 'createdTime:desc';
     render();
   });
@@ -476,9 +503,9 @@ async function bulkListForMessaging() {
 
     let msg;
     if (data.added > 0 && data.skipped > 0) {
-      msg = `Added ${data.added} to messaging · ${data.skipped} skipped (already in)`;
+      msg = `Added ${data.added} to invites · ${data.skipped} skipped (already in)`;
     } else if (data.added > 0) {
-      msg = `Added ${data.added} to messaging`;
+      msg = `Added ${data.added} to invites`;
     } else if (data.skipped > 0) {
       msg = `All ${data.skipped} already in messaging — none added`;
     } else {

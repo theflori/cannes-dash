@@ -1,10 +1,10 @@
-<!-- deploy-marker 1778497190 -->
+<!-- deploy-marker 1778503298 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Messaging · Château Privé EventOS</title>
+<title>Invites · Château Privé EventOS</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -194,7 +194,7 @@
         <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <h1 class="page-title">Messaging</h1>
+        <h1 class="page-title">Invites</h1>
         <span class="page-subtitle" id="headerMeta">Loading…</span>
       </div>
       <div class="flex items-center gap-2">
@@ -227,10 +227,10 @@
       <!-- Empty state -->
       <div class="empty-state" id="emptyState" style="display:none">
         <div class="empty-icon">∅</div>
-        <div class="empty-title">No guests in messaging yet</div>
+        <div class="empty-title">No guests in invites yet</div>
         <div class="empty-desc">
           Go to the <a href="/guests" style="color: var(--gold-deep)">Guests page</a>,
-          select people you want to communicate with, and click "List for Messaging".
+          select people you want to communicate with, and click "List for Invites".
           They'll appear here for SMS &amp; email.
         </div>
       </div>
@@ -244,13 +244,13 @@
                 <th class="col-check">
                   <input type="checkbox" id="selectAll" aria-label="Select all" />
                 </th>
-                <th class="col-name">Name</th>
-                <th class="col-ig">Instagram</th>
-                <th class="col-followers" style="text-align:right">Followers</th>
-                <th class="col-msgstatus">Messaging</th>
+                <th class="col-name sortable" data-sort="name">Name<span class="sort-arrow"></span></th>
+                <th class="col-ig sortable" data-sort="instagram">Instagram<span class="sort-arrow"></span></th>
+                <th class="col-followers sortable" data-sort="igFollowers" style="text-align:right">Followers<span class="sort-arrow"></span></th>
+                <th class="col-msgstatus sortable" data-sort="messagingStatus">Invite Status<span class="sort-arrow"></span></th>
                 <th class="col-laststatus">Guest Status</th>
-                <th class="col-tags">Referred By</th>
-                <th class="col-submitted">Date</th>
+                <th class="col-tags sortable" data-sort="referredBy">Referred By<span class="sort-arrow"></span></th>
+                <th class="col-submitted sortable" data-sort="createdTime">Date<span class="sort-arrow"></span></th>
                 <th class="col-send"></th>
               </tr>
             </thead>
@@ -268,7 +268,7 @@
             <option value="Waitlist">Waitlist</option>
             <option value="Approved">Approved</option>
             <option value="Declined">Declined</option>
-            <option value="__remove__">— Remove from messaging</option>
+            <option value="__remove__">— Remove from invites</option>
           </select>
           <button class="btn" id="bulkSendOnly" title="Send messages based on each guest's current Messaging Status">Resend</button>
           <button class="btn" id="bulkWaitlist" title="Set status to Waitlist + send waitlist email and SMS" style="border-color:#D4A744;color:#D4A744">Waitlist &amp; send</button>
@@ -339,6 +339,8 @@ let allGuests = [];
 let messagingGuests = [];
 let currentFilter = 'all';
 let searchQuery = '';
+let sortKey = 'default';  // 'default' = Approved-first stack-order; otherwise column name
+let sortDir = 'asc';
 let selectedIds = new Set();
 
 // ============== INIT ==============
@@ -451,7 +453,7 @@ function renderCounts() {
   document.getElementById('cntDeclined').textContent = counts.Declined;
 
   document.getElementById('headerMeta').textContent =
-    `${counts.all} guest${counts.all !== 1 ? 's' : ''} in messaging` +
+    `${counts.all} guest${counts.all !== 1 ? 's' : ''} in invites` +
     (counts.Approved > 0 ? ` · ${counts.Approved} approved` : '');
 
   // Broadcast section
@@ -504,23 +506,35 @@ function render() {
     });
   }
 
-  // Sort: Approved first (most actionable), then by name
+  // Sort: respect user-clicked column, otherwise default = Approved first then name
   rows = [...rows].sort((a, b) => {
-    const order = { 'Approved': 0, 'Waitlist': 1, 'Semi Approved': 2, 'Listed': 3, 'Declined': 4 };
-    const oa = order[a.messagingStatus] ?? 99;
-    const ob = order[b.messagingStatus] ?? 99;
-    if (oa !== ob) return oa - ob;
-    return (a.name || '').localeCompare(b.name || '');
+    if (sortKey === 'default') {
+      const order = { 'Approved': 0, 'Waitlist': 1, 'Semi Approved': 2, 'Listed': 3, 'Declined': 4 };
+      const oa = order[a.messagingStatus] ?? 99;
+      const ob = order[b.messagingStatus] ?? 99;
+      if (oa !== ob) return oa - ob;
+      return (a.name || '').localeCompare(b.name || '');
+    }
+    let av = a[sortKey], bv = b[sortKey];
+    if (av === null || av === undefined || av === '') av = sortDir === 'asc' ? Infinity : -Infinity;
+    if (bv === null || bv === undefined || bv === '') bv = sortDir === 'asc' ? Infinity : -Infinity;
+    if (typeof av === 'string') av = av.toLowerCase();
+    if (typeof bv === 'string') bv = bv.toLowerCase();
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
   });
+
+  updateInvitedSortIndicators();
 
   if (rows.length === 0) {
     card.style.display = 'none';
     empty.style.display = 'block';
     if (messagingGuests.length === 0) {
-      empty.querySelector('.empty-title').textContent = 'No guests in messaging yet';
+      empty.querySelector('.empty-title').textContent = 'No guests in invites yet';
       empty.querySelector('.empty-desc').innerHTML =
         'Go to the <a href="/guests" style="color: var(--gold-deep)">Guests page</a>, ' +
-        'select people you want to communicate with, and click "List for Messaging". ' +
+        'select people you want to communicate with, and click "List for Invites". ' +
         'They\'ll appear here for SMS &amp; email.';
     } else {
       empty.querySelector('.empty-title').textContent = 'No guests with this status';
@@ -591,8 +605,11 @@ function rowHtml(g) {
     ? `<span style="color:var(--ink-soft); font-size:12px">${escapeHtml(g.status)}</span>`
     : `<span style="color:var(--ink-faint)">—</span>`;
 
+  const igLockIcon = g.igIsPrivate === true
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Private profile" width="12" height="12" style="flex-shrink:0;color:#c47466"><title>Private profile</title><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
+    : '';
   const igLink = g.instagram
-    ? `<div class="ig-cell"><span class="ig-handle"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${escapeHtml(g.instagram)}</a></span></div>`
+    ? `<div class="ig-cell">${igLockIcon}<span class="ig-handle" title="${g.igIsPrivate === true ? 'Private — ' : ''}@${escapeAttr(g.instagram)}"><a href="https://instagram.com/${encodeURIComponent(g.instagram)}" target="_blank" rel="noopener">@${escapeHtml(g.instagram)}</a></span></div>`
     : `<span style="color:var(--ink-faint)">—</span>`;
 
   const referralCell = g.referredBy
@@ -681,6 +698,35 @@ function bindFilters() {
       render();
     }, 120);
   });
+
+  // Sortable column headers — click to sort
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (sortKey === key) {
+        // Toggle direction
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortKey = key;
+        // Sensible default: numeric/date desc, text asc
+        sortDir = (key === 'igFollowers' || key === 'createdTime') ? 'desc' : 'asc';
+      }
+      render();
+    });
+  });
+}
+
+function updateInvitedSortIndicators() {
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.classList.remove('sorted');
+    const arrow = th.querySelector('.sort-arrow');
+    if (th.dataset.sort === sortKey) {
+      th.classList.add('sorted');
+      if (arrow) arrow.textContent = sortDir === 'asc' ? '  ▴' : '  ▾';
+    } else if (arrow) {
+      arrow.textContent = '';
+    }
+  });
 }
 
 // ============== STATUS MENU ==============
@@ -692,7 +738,7 @@ function openStatusMenu(anchor, recordId) {
   menu.innerHTML = MSG_STATUS_OPTIONS.map(s => {
     return `<button data-status="${escapeAttr(s)}"><span class="dot" style="background:${MSG_DOT[s]}"></span>${escapeHtml(s)}</button>`;
   }).join('') + '<div class="divider"></div>' +
-    `<button data-status="" class="clear-btn">Remove from messaging</button>`;
+    `<button data-status="" class="clear-btn">Remove from invites</button>`;
 
   document.body.appendChild(menu);
   const r = anchor.getBoundingClientRect();
@@ -728,7 +774,7 @@ async function setStatus(recordIds, status) {
       throw new Error(e.error || `HTTP ${res.status}`);
     }
     if (status === '') {
-      showToast(`Removed from messaging`, 'success');
+      showToast(`Removed from invites`, 'success');
     } else {
       showToast(`Status set to ${status}`, 'success');
     }
@@ -860,7 +906,7 @@ function bindBulkBar() {
     const ids = Array.from(selectedIds);
     let newStatus;
     if (value === '__remove__') {
-      if (!confirm(`Remove ${ids.length} guest${ids.length>1?'s':''} from messaging?`)) return;
+      if (!confirm(`Remove ${ids.length} guest${ids.length>1?'s':''} from invites?`)) return;
       newStatus = '';  // empty string clears Messaging Status
     } else {
       newStatus = value;
