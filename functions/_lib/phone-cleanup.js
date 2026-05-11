@@ -1,141 +1,198 @@
-// deploy-marker phone-cleanup-v1
-// Phone normalization utility - shared between dry-run preview and bulk apply.
+// deploy-marker 1778513130
+// Phone normalization using Google's libphonenumber library (250+ countries, ~accurate).
 //
-// Strategy:
-//   1. Strip whitespace, dashes, parens, dots
-//   2. Convert "00..." to "+..."
-//   3. If already starts with "+" → assume good, just emit cleaned digits
-//   4. If only digits + has country code prefix matching known patterns → add "+"
-//   5. If no prefix + email domain known (.de, .fr, .es, .it, .co.uk, .nl, .be, .ch, .at) → prepend that country code
-//   6. Otherwise: leave as-is, mark "needs review"
+// Strategy (each step only escalates if the previous failed):
+//   1. Try parsing as-is (libphonenumber detects "+", "00", international format on its own)
+//   2. If number has "00" prefix → strip + replace with "+", parse again
+//   3. If no country detected → try with default country derived from email TLD
+//   4. If still ambiguous → try DE (DACH primary) and FR (Cannes context) as fallback
+//   5. If all fail → mark needs_review with a clear reason
 
-// Common European + DACH + relevant country codes
-const DOMAIN_TO_COUNTRY = {
-  'de': '+49', 'at': '+43', 'ch': '+41',
-  'fr': '+33', 'es': '+34', 'it': '+39',
-  'uk': '+44', 'co.uk': '+44',
-  'nl': '+31', 'be': '+32', 'lu': '+352',
-  'pt': '+351', 'pl': '+48', 'cz': '+420',
-  'dk': '+45', 'se': '+46', 'no': '+47', 'fi': '+358',
-  'gr': '+30', 'tr': '+90', 'ru': '+7',
-  'us': '+1', 'ca': '+1',
-  'ae': '+971', 'sa': '+966',
-  'br': '+55', 'mx': '+52', 'ar': '+54',
-  'au': '+61', 'nz': '+64',
-  'jp': '+81', 'cn': '+86', 'kr': '+82', 'in': '+91'
+import { parsePhoneNumberFromString } from './libphonenumber.js';
+
+// Email TLD → ISO 3166-1 alpha-2 country code
+const TLD_TO_COUNTRY = {
+  'de': 'DE', 'at': 'AT', 'ch': 'CH',
+  'fr': 'FR', 'es': 'ES', 'it': 'IT',
+  'uk': 'GB', 'co.uk': 'GB', 'gb': 'GB',
+  'nl': 'NL', 'be': 'BE', 'lu': 'LU',
+  'pt': 'PT', 'pl': 'PL', 'cz': 'CZ',
+  'dk': 'DK', 'se': 'SE', 'no': 'NO', 'fi': 'FI',
+  'gr': 'GR', 'tr': 'TR', 'ru': 'RU',
+  'us': 'US', 'ca': 'CA',
+  'ae': 'AE', 'sa': 'SA', 'eg': 'EG', 'ma': 'MA', 'tn': 'TN',
+  'br': 'BR', 'mx': 'MX', 'ar': 'AR', 'cl': 'CL', 'co': 'CO',
+  'au': 'AU', 'nz': 'NZ',
+  'jp': 'JP', 'cn': 'CN', 'kr': 'KR', 'in': 'IN', 'sg': 'SG', 'hk': 'HK', 'th': 'TH',
+  'il': 'IL', 'za': 'ZA', 'ng': 'NG', 'ke': 'KE',
+  'ie': 'IE'
 };
 
-// Known country code prefixes (sorted by length descending so 3-digit matches before 2-digit)
-const COUNTRY_PREFIXES = [
-  '358', '352', '420', '971', '966', '352',  // 3-digit
-  '49', '43', '41', '33', '34', '39', '44', '31', '32', '45', '46', '47', '48',
-  '30', '90', '55', '52', '54', '61', '64', '81', '86', '82', '91',
-  '20', '27', '60',
-  '7', '1' // last
-];
-
-const DEFAULT_COUNTRY = '+33'; // Cannes context — but only used if explicitly opted-in
+// Fallback country guesses (tried in order if everything else fails)
+const FALLBACK_COUNTRIES = ['DE', 'FR'];  // DACH primary, Cannes secondary
 
 /**
- * Returns { original, cleaned, action, status, note }
- *   status: 'ok' | 'guessed' | 'needs_review' | 'empty' | 'unchanged'
- *   action: human-readable explanation
+ * Returns { original, cleaned, status, action, country, valid, validationReason }
+ *   status: 'ok' | 'guessed' | 'likely' | 'needs_review' | 'empty' | 'unchanged' | 'invalid'
  */
 export function cleanupPhone(rawPhone, emailHint) {
   const original = (rawPhone || '').trim();
 
   if (!original) {
-    return { original: '', cleaned: '', status: 'empty', action: 'No phone' };
+    return { original: '', cleaned: '', status: 'empty', action: 'No phone', country: null, valid: false, validationReason: 'empty' };
   }
 
-  // Step 1: Remove all non-digit/non-plus characters
-  // Keep leading + if present
-  let stripped = original.replace(/[^\d+]/g, '');
-
-  // Step 2: Convert leading "00" to "+"
-  if (stripped.startsWith('00')) {
-    stripped = '+' + stripped.slice(2);
+  // Step 0: Light cleanup before parsing (remove obvious non-essential characters but keep + and digits)
+  let prepared = original.replace(/[^\d+\-\s().]/g, '').trim();
+  if (!prepared) {
+    return { original, cleaned: '', status: 'invalid', action: 'No digits found', country: null, valid: false, validationReason: 'no digits' };
   }
 
-  // Step 3: Already has + prefix — just emit cleaned version
-  if (stripped.startsWith('+')) {
-    if (stripped === original.replace(/\s/g, '')) {
-      return { original, cleaned: stripped, status: 'unchanged', action: 'Already clean' };
+  // Convert leading "00" to "+" (international dialing prefix)
+  if (prepared.startsWith('00')) {
+    prepared = '+' + prepared.slice(2);
+  }
+
+  // ============== Try parsing without any country hint ==============
+  // libphonenumber will detect the country from "+XX" prefix on its own.
+  try {
+    const parsed = parsePhoneNumberFromString(prepared);
+    if (parsed && parsed.isValid()) {
+      const e164 = parsed.number;
+      const country = parsed.country;
+      const wasFormatted = e164 !== original.replace(/\s/g, '');
+      return {
+        original,
+        cleaned: e164,
+        status: wasFormatted ? 'ok' : 'unchanged',
+        action: wasFormatted
+          ? `Formatted as ${country || 'international'}`
+          : 'Already valid',
+        country,
+        valid: true,
+        validationReason: ''
+      };
     }
-    return { original, cleaned: stripped, status: 'ok', action: 'Removed formatting' };
-  }
+  } catch {}
 
-  // Step 4: No + prefix - try to detect country code from leading digits
-  // If it starts with a known country code AND total length is plausible (10-15 digits)
-  if (stripped.length >= 8 && stripped.length <= 15) {
-    for (const prefix of COUNTRY_PREFIXES) {
-      if (stripped.startsWith(prefix)) {
-        const remainingDigits = stripped.length - prefix.length;
-        // Phones typically have 7-12 digits after country code
-        if (remainingDigits >= 7 && remainingDigits <= 12) {
+  // ============== If no "+" prefix, try adding it (maybe user forgot the +) ==============
+  // Catches cases like "971501234567" or "33612345678" which are valid E.164 without leading +
+  if (!prepared.startsWith('+')) {
+    const digitsOnly = prepared.replace(/\D/g, '');
+    if (digitsOnly.length >= 8 && digitsOnly.length <= 15) {
+      try {
+        const parsed = parsePhoneNumberFromString('+' + digitsOnly);
+        if (parsed && parsed.isValid()) {
           return {
             original,
-            cleaned: '+' + stripped,
+            cleaned: parsed.number,
             status: 'guessed',
-            action: `Added "+" (detected +${prefix} country prefix)`
+            action: `Added "+" — detected ${parsed.country} from country code`,
+            country: parsed.country,
+            valid: true,
+            validationReason: ''
           };
         }
-      }
+      } catch {}
     }
   }
 
-  // Step 5: No detected prefix — try email domain
-  const tld = extractTld(emailHint);
-  if (tld && DOMAIN_TO_COUNTRY[tld]) {
-    const cc = DOMAIN_TO_COUNTRY[tld];
-    // Remove leading 0 from local number if present (e.g. "017..." → "17...")
-    let local = stripped;
-    if (local.startsWith('0')) local = local.slice(1);
-    return {
-      original,
-      cleaned: cc + local,
-      status: 'guessed',
-      action: `Added ${cc} based on email domain .${tld}`
-    };
+  // ============== Try with country hint from email TLD ==============
+  const tldCountry = countryFromEmail(emailHint);
+  if (tldCountry) {
+    try {
+      const parsed = parsePhoneNumberFromString(prepared, tldCountry);
+      if (parsed && parsed.isValid()) {
+        return {
+          original,
+          cleaned: parsed.number,
+          status: 'guessed',
+          action: `Detected ${parsed.country} via email domain`,
+          country: parsed.country,
+          valid: true,
+          validationReason: ''
+        };
+      }
+    } catch {}
   }
 
-  // Step 6: Cannot reliably determine
+  // ============== Try fallback countries (DACH + Cannes context) ==============
+  for (const fallback of FALLBACK_COUNTRIES) {
+    try {
+      const parsed = parsePhoneNumberFromString(prepared, fallback);
+      if (parsed && parsed.isValid()) {
+        return {
+          original,
+          cleaned: parsed.number,
+          status: 'likely',
+          action: `Pattern matches ${parsed.country} — verify`,
+          country: parsed.country,
+          valid: true,
+          validationReason: ''
+        };
+      }
+    } catch {}
+  }
+
+  // ============== Last resort: parse without validation to give a hint ==============
+  try {
+    const parsed = parsePhoneNumberFromString(prepared, tldCountry || 'DE');
+    if (parsed) {
+      // Got a parse but not valid — still produce a result for review
+      return {
+        original,
+        cleaned: parsed.number || prepared,
+        status: 'needs_review',
+        action: parsed.country ? `Parsed as ${parsed.country} but invalid for that country` : 'Could not validate',
+        country: parsed.country || null,
+        valid: false,
+        validationReason: 'invalid format for detected country'
+      };
+    }
+  } catch {}
+
+  // ============== Truly unparseable ==============
   return {
     original,
-    cleaned: stripped,
+    cleaned: prepared,
     status: 'needs_review',
-    action: 'Country unknown — needs manual review'
+    action: 'Could not detect country — needs manual review',
+    country: null,
+    valid: false,
+    validationReason: 'unparseable'
   };
 }
 
-function extractTld(email) {
+function countryFromEmail(email) {
   if (!email) return null;
   const at = email.lastIndexOf('@');
   if (at < 0) return null;
   const domain = email.slice(at + 1).toLowerCase().trim();
   if (!domain) return null;
 
-  // Check for two-part TLDs first
-  if (domain.endsWith('.co.uk')) return 'co.uk';
-  if (domain.endsWith('.com.au')) return 'au';
-  if (domain.endsWith('.com.br')) return 'br';
-  if (domain.endsWith('.com.mx')) return 'mx';
+  // Multi-part TLDs first
+  if (domain.endsWith('.co.uk')) return 'GB';
+  if (domain.endsWith('.com.au')) return 'AU';
+  if (domain.endsWith('.com.br')) return 'BR';
+  if (domain.endsWith('.com.mx')) return 'MX';
 
   const lastDot = domain.lastIndexOf('.');
   if (lastDot < 0) return null;
-  return domain.slice(lastDot + 1);
+  const tld = domain.slice(lastDot + 1);
+  return TLD_TO_COUNTRY[tld] || null;
 }
 
 /**
- * Validates a cleaned phone number after the cleanup
- * Returns { valid: bool, reason: string }
+ * Validates a cleaned phone number using libphonenumber
  */
 export function validateCleaned(cleaned) {
   if (!cleaned) return { valid: false, reason: 'empty' };
   if (!cleaned.startsWith('+')) return { valid: false, reason: 'missing country code' };
-  const digits = cleaned.slice(1);
-  if (!/^\d+$/.test(digits)) return { valid: false, reason: 'contains non-digits' };
-  if (digits.length < 8) return { valid: false, reason: 'too short' };
-  if (digits.length > 15) return { valid: false, reason: 'too long' };
-  return { valid: true, reason: '' };
+  try {
+    const parsed = parsePhoneNumberFromString(cleaned);
+    if (parsed && parsed.isValid()) return { valid: true, reason: '' };
+    return { valid: false, reason: 'invalid format' };
+  } catch {
+    return { valid: false, reason: 'unparseable' };
+  }
 }
