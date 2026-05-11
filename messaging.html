@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778504955 -->
+<!-- deploy-marker 1778505264 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -207,23 +207,36 @@
 
     <div class="page-content">
 
-      <!-- Search + filters -->
+      <!-- Search + filters (matches Guests page filtering) -->
       <div class="filter-bar" style="margin-bottom:14px">
         <div class="grow">
           <input type="text" class="input input-search" id="searchInput" placeholder="Search by name, email, IG, company, referrer…">
         </div>
+        <input type="number" class="input" id="minFollowers" placeholder="Min followers" min="0" style="width:130px">
+        <select class="input" id="followersFilter" style="width:auto" title="Filter by follower count">
+          <option value="">All followers</option>
+          <option value="over5k">Over 5K</option>
+          <option value="under5k">Under 5K</option>
+          <option value="nodata">No IG data</option>
+        </select>
         <select class="input" id="privacyFilter" style="width:auto" title="Filter by Instagram profile privacy">
           <option value="">All privacy</option>
           <option value="public">Public only</option>
           <option value="private">Private only</option>
           <option value="unknown">Unknown</option>
         </select>
-        <select class="input" id="followersFilter" style="width:auto" title="Filter by follower count">
-          <option value="">All followers</option>
-          <option value="over5k">Over 5K followers</option>
-          <option value="under5k">Under 5K followers</option>
-          <option value="nodata">No IG data</option>
+        <select class="input" id="sortPreset" style="width:auto">
+          <option value="default">Default sort</option>
+          <option value="createdTime:desc">Newest first</option>
+          <option value="createdTime:asc">Oldest first</option>
+          <option value="igFollowers:desc">Most followers</option>
+          <option value="igFollowers:asc">Least followers</option>
+          <option value="name:asc">Name A→Z</option>
+          <option value="name:desc">Name Z→A</option>
+          <option value="privacy:asc">Private first</option>
+          <option value="privacy:desc">Public first</option>
         </select>
+        <button class="btn btn-ghost btn-sm" id="resetFiltersBtn">Reset</button>
       </div>
 
       <!-- Filter pills -->
@@ -353,6 +366,7 @@ let currentFilter = 'all';
 let searchQuery = '';
 let privacyFilter = '';
 let followersFilter = '';
+let minFollowers = 0;
 let sortKey = 'default';  // 'default' = Approved-first stack-order; otherwise column name
 let sortDir = 'asc';
 let selectedIds = new Set();
@@ -525,12 +539,17 @@ function render() {
   else if (privacyFilter === 'private') rows = rows.filter(g => g.igIsPrivate === true);
   else if (privacyFilter === 'unknown') rows = rows.filter(g => g.igIsPrivate === null || g.igIsPrivate === undefined);
 
-  // Followers filter
+  // Followers filter (preset)
   if (followersFilter === 'over5k') rows = rows.filter(g => typeof g.igFollowers === 'number' && g.igFollowers >= 5000);
   else if (followersFilter === 'under5k') rows = rows.filter(g => typeof g.igFollowers === 'number' && g.igFollowers < 5000);
   else if (followersFilter === 'nodata') rows = rows.filter(g => g.igFollowers === null || g.igFollowers === undefined);
 
-  // Sort: respect user-clicked column, otherwise default = Approved first then name
+  // Min followers numeric input
+  if (minFollowers > 0) {
+    rows = rows.filter(g => g.igFollowers !== null && g.igFollowers !== undefined && g.igFollowers >= minFollowers);
+  }
+
+  // Sort: respect user-clicked column or sortPreset, otherwise default = Approved first then name
   rows = [...rows].sort((a, b) => {
     if (sortKey === 'default') {
       const order = { 'Approved': 0, 'Waitlist': 1, 'Semi Approved': 2, 'Listed': 3, 'Declined': 4 };
@@ -539,11 +558,18 @@ function render() {
       if (oa !== ob) return oa - ob;
       return (a.name || '').localeCompare(b.name || '');
     }
-    let av = a[sortKey], bv = b[sortKey];
-    if (av === null || av === undefined || av === '') av = sortDir === 'asc' ? Infinity : -Infinity;
-    if (bv === null || bv === undefined || bv === '') bv = sortDir === 'asc' ? Infinity : -Infinity;
-    if (typeof av === 'string') av = av.toLowerCase();
-    if (typeof bv === 'string') bv = bv.toLowerCase();
+    let av, bv;
+    if (sortKey === 'privacy') {
+      // Map: private=2, public=1, unknown=0
+      av = a.igIsPrivate === true ? 2 : a.igIsPrivate === false ? 1 : 0;
+      bv = b.igIsPrivate === true ? 2 : b.igIsPrivate === false ? 1 : 0;
+    } else {
+      av = a[sortKey]; bv = b[sortKey];
+      if (av === null || av === undefined || av === '') av = sortDir === 'asc' ? Infinity : -Infinity;
+      if (bv === null || bv === undefined || bv === '') bv = sortDir === 'asc' ? Infinity : -Infinity;
+      if (typeof av === 'string') av = av.toLowerCase();
+      if (typeof bv === 'string') bv = bv.toLowerCase();
+    }
     if (av < bv) return sortDir === 'asc' ? -1 : 1;
     if (av > bv) return sortDir === 'asc' ? 1 : -1;
     return 0;
@@ -729,9 +755,42 @@ function bindFilters() {
     render();
   });
 
-  // Followers filter
+  // Followers preset filter
   document.getElementById('followersFilter').addEventListener('change', e => {
     followersFilter = e.target.value;
+    render();
+  });
+
+  // Min followers numeric input
+  document.getElementById('minFollowers').addEventListener('input', e => {
+    minFollowers = parseInt(e.target.value) || 0;
+    render();
+  });
+
+  // Sort preset dropdown
+  document.getElementById('sortPreset').addEventListener('change', e => {
+    const val = e.target.value;
+    if (val === 'default') {
+      sortKey = 'default'; sortDir = 'asc';
+    } else {
+      const [key, dir] = val.split(':');
+      sortKey = key; sortDir = dir;
+    }
+    render();
+  });
+
+  // Reset filters
+  document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+    searchQuery = '';
+    privacyFilter = '';
+    followersFilter = '';
+    minFollowers = 0;
+    sortKey = 'default'; sortDir = 'asc';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('privacyFilter').value = '';
+    document.getElementById('followersFilter').value = '';
+    document.getElementById('minFollowers').value = '';
+    document.getElementById('sortPreset').value = 'default';
     render();
   });
 
