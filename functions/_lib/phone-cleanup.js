@@ -81,11 +81,12 @@ export function cleanupPhone(rawPhone, emailHint) {
       return { original, cleaned: stripped, status: 'needs_review', action: 'Has + but invalid format', country: null, valid: false };
     }
     const detected = detectCountryFromE164(digits);
-    const cleanedNoSpace = original.replace(/\s+/g, '');
-    if (stripped === cleanedNoSpace) {
+    // If original has ANY formatting (whitespace, dashes, parens, etc.), report as 'ok' so user sees it in preview
+    const hadFormatting = original !== stripped;
+    if (!hadFormatting) {
       return { original, cleaned: stripped, status: 'unchanged', action: 'Already E.164', country: detected, valid: true };
     }
-    return { original, cleaned: stripped, status: 'ok', action: 'Cleaned formatting', country: detected, valid: true };
+    return { original, cleaned: stripped, status: 'ok', action: 'Removed spaces/formatting', country: detected, valid: true };
   }
 
   const tld = tldFromEmail(emailHint);

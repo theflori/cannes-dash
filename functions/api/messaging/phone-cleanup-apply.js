@@ -3,7 +3,7 @@
 // Body: { updates: [ { id, cleaned } ] }
 // Applies the cleaned phone values to Airtable.
 
-import { airtablePatch, jsonError, jsonOk } from '../../_lib/messaging-utils.js';
+import { airtablePatch, jsonError, jsonOk, sanitizeE164 } from '../../_lib/messaging-utils.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -26,7 +26,9 @@ export async function onRequestPost(context) {
       continue;
     }
     try {
-      await airtablePatch(env, u.id, { 'Phone': u.cleaned });
+      // Final sanitization safety net: ensure value stored in Airtable is strict E.164
+      const sanitized = sanitizeE164(u.cleaned) || u.cleaned;
+      await airtablePatch(env, u.id, { 'Phone': sanitized });
       applied++;
     } catch (err) {
       failed.push({ id: u.id, reason: err.message });

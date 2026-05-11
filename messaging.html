@@ -1156,9 +1156,17 @@ function rowHtml(g) {
   const emailStyled = highlightEmail
     ? `<span class="contact-line" style="color:#c47466;font-weight:500">✗ ${escapeHtml(g.email)}</span>`
     : (g.email ? `<span class="contact-line">${escapeHtml(g.email)}</span>` : '');
+  // Show subtle 📵 icon for approved non-DE guests (auto-SMS only goes to DE).
+  // Only when there is no active error (errors take priority and render in red/yellow).
+  const isNonDeApproved = g.messagingStatus === 'Approved'
+    && g.phone && g.phone.startsWith('+') && !g.phone.startsWith('+49')
+    && !g.lastSendErrorLevel;
+  const noSmsIcon = isNonDeApproved
+    ? '<span class="no-sms-icon" title="No automatic SMS — phone is outside Germany. Email was sent." style="display:inline-flex;align-items:center;gap:4px;color:var(--ink-faint);font-size:11px;margin-left:6px;opacity:0.7">📵</span>'
+    : '';
   const phoneStyled = highlightPhone
     ? `<span class="contact-line" style="color:#a8842c;font-weight:500">✗ ${escapeHtml(g.phone)}</span>`
-    : (g.phone ? `<span class="contact-line">${escapeHtml(g.phone)}</span>` : '');
+    : (g.phone ? `<span class="contact-line">${escapeHtml(g.phone)}${noSmsIcon}</span>` : '');
 
   return `
     <tr data-id="${g.id}">

@@ -147,6 +147,26 @@ export async function sendEmail(env, { to, subject, html, text }) {
 
 // ============== TWILIO ==============
 
+// Marker error thrown when we intentionally skip an SMS due to Twilio account
+// restrictions (e.g. international destinations blocked while Geo-Permissions
+// issue is being resolved with Twilio Support). Callers detect this and treat
+// as "skipped", not "failed".
+export class SmsSkippedError extends Error {
+  constructor(reason, destination) {
+    super(`SMS skipped: ${reason} (to=${destination})`);
+    this.name = 'SmsSkippedError';
+    this.skipped = true;
+    this.destination = destination;
+  }
+}
+
+// Set TWILIO_INTL_BLOCKED=true in Cloudflare env to skip non-DE sends without
+// hitting Twilio (avoids cluttering Issues tab with 21408 errors during the
+// Twilio account fix process).
+function isInternationalBlocked(env) {
+  return env.TWILIO_INTL_BLOCKED === 'true' || env.TWILIO_INTL_BLOCKED === '1';
+}
+
 export async function sendSms(env, { to, body }) {
   if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_PHONE_NUMBER) {
     throw new Error('Twilio credentials not configured');
@@ -157,6 +177,25 @@ export async function sendSms(env, { to, body }) {
   const sanitizedTo = sanitizeE164(to);
   if (!sanitizedTo) {
     throw new Error(`Invalid phone number for SMS: "${to}"`);
+  }
+
+  // Auto-send only enabled for +49 (DE).
+  // Other countries: silently skip SMS (no Twilio call, no error tracking).
+  // Email continues to work for these recipients.
+  // Frontend shows a 📵 icon next to these guests; no warning in issues tab.
+  // Re-enable later via int. SMS resend button or manual per-row send when account is unblocked.
+  if (!sanitizedTo.startsWith('+49')) {
+    return { sid: 'SKIPPED_NON_DE', status: 'skipped', skipped: true, reason: 'auto_send_de_only' };
+  }
+
+  // Skip international destinations when env flag is set.
+  // DE and US are the only known-working destinations on this Twilio account.
+  if (isInternationalBlocked(env)) {
+    const isDE = sanitizedTo.startsWith('+49');
+    const isUS = sanitizedTo.startsWith('+1');
+    if (!isDE && !isUS) {
+      throw new SmsSkippedError('international destinations disabled', sanitizedTo);
+    }
   }
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -253,7 +292,12 @@ export async function markSendError(env, recordId, message) {
       'Last Send Error At': new Date().toISOString(),
       'Last Send Error Level': 'error'
     });
-  } catch {}
+  } catch (err) {
+    // If this fails, the 3 Airtable error tracking fields likely don't exist.
+    // Log to console so the operator can diagnose why Issues tab shows 0.
+    console.error('[markSendError] Airtable patch failed for', recordId, '-', err.message,
+      '\nThis usually means the 3 error tracking fields (Last Send Error, Last Send Error At, Last Send Error Level) are missing from your Airtable schema. Add them as: Long Text, DateTime, Single Line Text.');
+  }
 }
 
 // Call when ONLY SMS fails (email worked - less critical)
@@ -264,7 +308,10 @@ export async function markSendWarning(env, recordId, message) {
       'Last Send Error At': new Date().toISOString(),
       'Last Send Error Level': 'warning'
     });
-  } catch {}
+  } catch (err) {
+    console.error('[markSendWarning] Airtable patch failed for', recordId, '-', err.message,
+      '\nAdd Last Send Error (Long Text), Last Send Error At (DateTime), Last Send Error Level (Single Line Text) fields to your Airtable.');
+  }
 }
 
 // Call on full success - clears the error fields
@@ -275,5 +322,7 @@ export async function clearSendError(env, recordId) {
       'Last Send Error At': null,
       'Last Send Error Level': ''
     });
-  } catch {}
+  } catch (err) {
+    // Don't log this one — it's expected if fields don't exist yet
+  }
 }
