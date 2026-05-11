@@ -415,7 +415,7 @@ Can't attend? <a href="${escapeHtml(declineUrl)}" style="color:#d4b884;text-deco
 
 export function renderConfirmationSms({ name, declineCode }) {
   const firstName = (name || '').split(' ')[0] || '';
-  return `${firstName ? firstName + ', ' : ''}you're confirmed for Château Privé · 15 May · Cannes. Details in your email. Can't make it? ${shortUrl(declineCode)}`;
+  return `${firstName ? firstName + ', ' : ''}you're confirmed for Château Privé · 15 May · Cannes. Details sent to your email — please check spam if you can't find it. Can't make it? ${shortUrl(declineCode)}`;
 }
 
 export function renderWaitlistSms({ name, declineCode }) {

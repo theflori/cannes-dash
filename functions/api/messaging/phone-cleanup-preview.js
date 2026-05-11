@@ -1,4 +1,4 @@
-// deploy-marker phone-preview-v1
+// deploy-marker 1778513130
 // POST /api/messaging/phone-cleanup-preview
 // Body: { recordIds?: string[] }  - if missing, scans ALL messaging guests
 //
@@ -44,6 +44,7 @@ export async function onRequestPost(context) {
       cleaned: result.cleaned,
       status: result.status,
       action: result.action,
+      country: result.country || null,
       valid: validation.valid,
       validationReason: validation.reason
     });
@@ -52,9 +53,10 @@ export async function onRequestPost(context) {
   // Group by status for the UI
   const summary = {
     total: previews.length,
-    ok: previews.filter(p => p.status === 'ok').length,
+    ok: previews.filter(p => p.status === 'ok' || p.status === 'unchanged').length,
     guessed: previews.filter(p => p.status === 'guessed').length,
-    needsReview: previews.filter(p => p.status === 'needs_review').length
+    likely: previews.filter(p => p.status === 'likely').length,
+    needsReview: previews.filter(p => p.status === 'needs_review' || p.status === 'invalid').length
   };
 
   return jsonOk({ previews, summary });

@@ -1,198 +1,154 @@
-// deploy-marker 1778513130
-// Phone normalization using Google's libphonenumber library (250+ countries, ~accurate).
-//
-// Strategy (each step only escalates if the previous failed):
-//   1. Try parsing as-is (libphonenumber detects "+", "00", international format on its own)
-//   2. If number has "00" prefix → strip + replace with "+", parse again
-//   3. If no country detected → try with default country derived from email TLD
-//   4. If still ambiguous → try DE (DACH primary) and FR (Cannes context) as fallback
-//   5. If all fail → mark needs_review with a clear reason
+// deploy-marker 1778520624
+// Phone normalization using country-specific MOBILE-ONLY prefix patterns.
 
-import { parsePhoneNumberFromString } from './libphonenumber.js';
+const MOBILE_PATTERNS = [
+  // ============== DACH ==============
+  { country: 'DE', cc: '49', pattern: /^0?15\d{8,9}$/, strip: 1, name: 'DE Mobile 015x' },
+  { country: 'DE', cc: '49', pattern: /^0?16[023]\d{7,8}$/, strip: 1, name: 'DE Mobile 016x' },
+  { country: 'DE', cc: '49', pattern: /^0?17\d{8,9}$/, strip: 1, name: 'DE Mobile 017x' },
+  { country: 'AT', cc: '43', pattern: /^0?6(?:50|6[047]|7[67]|8[018]|99)\d{6,8}$/, strip: 1, name: 'AT Mobile' },
+  { country: 'CH', cc: '41', pattern: /^0?7[4-9]\d{7}$/, strip: 1, name: 'CH Mobile' },
 
-// Email TLD → ISO 3166-1 alpha-2 country code
-const TLD_TO_COUNTRY = {
-  'de': 'DE', 'at': 'AT', 'ch': 'CH',
-  'fr': 'FR', 'es': 'ES', 'it': 'IT',
-  'uk': 'GB', 'co.uk': 'GB', 'gb': 'GB',
-  'nl': 'NL', 'be': 'BE', 'lu': 'LU',
-  'pt': 'PT', 'pl': 'PL', 'cz': 'CZ',
-  'dk': 'DK', 'se': 'SE', 'no': 'NO', 'fi': 'FI',
-  'gr': 'GR', 'tr': 'TR', 'ru': 'RU',
-  'us': 'US', 'ca': 'CA',
-  'ae': 'AE', 'sa': 'SA', 'eg': 'EG', 'ma': 'MA', 'tn': 'TN',
-  'br': 'BR', 'mx': 'MX', 'ar': 'AR', 'cl': 'CL', 'co': 'CO',
-  'au': 'AU', 'nz': 'NZ',
-  'jp': 'JP', 'cn': 'CN', 'kr': 'KR', 'in': 'IN', 'sg': 'SG', 'hk': 'HK', 'th': 'TH',
-  'il': 'IL', 'za': 'ZA', 'ng': 'NG', 'ke': 'KE',
-  'ie': 'IE'
-};
+  // ============== Europe ==============
+  { country: 'FR', cc: '33', pattern: /^0?[67]\d{8}$/, strip: 1, name: 'FR Mobile', tlds: ['fr'] },
+  { country: 'GB', cc: '44', pattern: /^0?7[1-9]\d{8}$/, strip: 1, name: 'UK Mobile', tlds: ['uk', 'co.uk', 'gb'] },
+  { country: 'IT', cc: '39', pattern: /^3\d{8,9}$/, strip: 0, name: 'IT Mobile', requireTld: true, tlds: ['it'] },
+  { country: 'ES', cc: '34', pattern: /^[67]\d{8}$/, strip: 0, name: 'ES Mobile', requireTld: true, tlds: ['es'] },
+  { country: 'NL', cc: '31', pattern: /^0?6\d{8}$/, strip: 1, name: 'NL Mobile', requireTld: true, tlds: ['nl'] },
+  { country: 'BE', cc: '32', pattern: /^0?4[5-9]\d{7}$/, strip: 1, name: 'BE Mobile', requireTld: true, tlds: ['be'] },
+  { country: 'PT', cc: '351', pattern: /^9[1236]\d{7}$/, strip: 0, name: 'PT Mobile', requireTld: true, tlds: ['pt'] },
+  { country: 'IE', cc: '353', pattern: /^0?8[3-9]\d{7}$/, strip: 1, name: 'IE Mobile', requireTld: true, tlds: ['ie'] },
+  { country: 'SE', cc: '46', pattern: /^0?7[02369]\d{7}$/, strip: 1, name: 'SE Mobile', requireTld: true, tlds: ['se'] },
+  { country: 'NO', cc: '47', pattern: /^[49]\d{7}$/, strip: 0, name: 'NO Mobile', requireTld: true, tlds: ['no'] },
+  { country: 'DK', cc: '45', pattern: /^[2-9]\d{7}$/, strip: 0, name: 'DK Mobile', requireTld: true, tlds: ['dk'] },
+  { country: 'PL', cc: '48', pattern: /^[4-8]\d{8}$/, strip: 0, name: 'PL Mobile', requireTld: true, tlds: ['pl'] },
+  { country: 'CZ', cc: '420', pattern: /^[67]\d{8}$/, strip: 0, name: 'CZ Mobile', requireTld: true, tlds: ['cz'] },
+  { country: 'GR', cc: '30', pattern: /^69\d{8}$/, strip: 0, name: 'GR Mobile', requireTld: true, tlds: ['gr'] },
 
-// Fallback country guesses (tried in order if everything else fails)
-const FALLBACK_COUNTRIES = ['DE', 'FR'];  // DACH primary, Cannes secondary
+  // ============== Middle East ==============
+  { country: 'AE', cc: '971', pattern: /^0?5[024568]\d{7}$/, strip: 1, name: 'UAE Mobile', tlds: ['ae'] },
+  { country: 'SA', cc: '966', pattern: /^0?5\d{8}$/, strip: 1, name: 'SA Mobile', tlds: ['sa'] },
+  { country: 'TR', cc: '90', pattern: /^0?5\d{9}$/, strip: 1, name: 'TR Mobile', tlds: ['tr'] },
+  { country: 'IL', cc: '972', pattern: /^0?5[0-9]\d{7}$/, strip: 1, name: 'IL Mobile', tlds: ['il'] },
 
-/**
- * Returns { original, cleaned, status, action, country, valid, validationReason }
- *   status: 'ok' | 'guessed' | 'likely' | 'needs_review' | 'empty' | 'unchanged' | 'invalid'
- */
-export function cleanupPhone(rawPhone, emailHint) {
-  const original = (rawPhone || '').trim();
+  // ============== North America ==============
+  { country: 'US', cc: '1', pattern: /^[2-9]\d{2}[2-9]\d{6}$/, strip: 0, name: 'US/CA', tlds: ['us', 'ca'] },
 
-  if (!original) {
-    return { original: '', cleaned: '', status: 'empty', action: 'No phone', country: null, valid: false, validationReason: 'empty' };
-  }
+  // ============== APAC ==============
+  // NOTE: AU/NZ patterns are restrictive — they require .au/.nz TLD to match (avoid false-positives with DE 0211 etc.)
+  { country: 'AU', cc: '61', pattern: /^0?4\d{8}$/, strip: 1, name: 'AU Mobile', tlds: ['au'], requireTld: true },
+  { country: 'NZ', cc: '64', pattern: /^0?2[01278]\d{6,9}$/, strip: 1, name: 'NZ Mobile', tlds: ['nz'], requireTld: true },
+  { country: 'JP', cc: '81', pattern: /^0?[789]0\d{8}$/, strip: 1, name: 'JP Mobile', tlds: ['jp'] },
+  { country: 'CN', cc: '86', pattern: /^1[3-9]\d{9}$/, strip: 0, name: 'CN Mobile', tlds: ['cn'] },
 
-  // Step 0: Light cleanup before parsing (remove obvious non-essential characters but keep + and digits)
-  let prepared = original.replace(/[^\d+\-\s().]/g, '').trim();
-  if (!prepared) {
-    return { original, cleaned: '', status: 'invalid', action: 'No digits found', country: null, valid: false, validationReason: 'no digits' };
-  }
+  // ============== With country code (no +) ==============
+  { country: 'DE', cc: '49', pattern: /^491[567]\d{8,9}$/, strip: 0, name: 'DE Mobile (no +)', skipCcPrefix: true },
+  { country: 'AT', cc: '43', pattern: /^436(?:50|6[047]|7[67]|8[018]|99)\d{6,7}$/, strip: 0, name: 'AT Mobile (no +)', skipCcPrefix: true },
+  { country: 'CH', cc: '41', pattern: /^417[4-9]\d{7}$/, strip: 0, name: 'CH Mobile (no +)', skipCcPrefix: true },
+  { country: 'FR', cc: '33', pattern: /^33[67]\d{8}$/, strip: 0, name: 'FR Mobile (no +)', skipCcPrefix: true },
+  { country: 'GB', cc: '44', pattern: /^447[1-9]\d{8}$/, strip: 0, name: 'UK Mobile (no +)', skipCcPrefix: true },
+  { country: 'AE', cc: '971', pattern: /^9715[024568]\d{7}$/, strip: 0, name: 'UAE Mobile (no +)', skipCcPrefix: true },
+];
 
-  // Convert leading "00" to "+" (international dialing prefix)
-  if (prepared.startsWith('00')) {
-    prepared = '+' + prepared.slice(2);
-  }
-
-  // ============== Try parsing without any country hint ==============
-  // libphonenumber will detect the country from "+XX" prefix on its own.
-  try {
-    const parsed = parsePhoneNumberFromString(prepared);
-    if (parsed && parsed.isValid()) {
-      const e164 = parsed.number;
-      const country = parsed.country;
-      const wasFormatted = e164 !== original.replace(/\s/g, '');
-      return {
-        original,
-        cleaned: e164,
-        status: wasFormatted ? 'ok' : 'unchanged',
-        action: wasFormatted
-          ? `Formatted as ${country || 'international'}`
-          : 'Already valid',
-        country,
-        valid: true,
-        validationReason: ''
-      };
-    }
-  } catch {}
-
-  // ============== If no "+" prefix, try adding it (maybe user forgot the +) ==============
-  // Catches cases like "971501234567" or "33612345678" which are valid E.164 without leading +
-  if (!prepared.startsWith('+')) {
-    const digitsOnly = prepared.replace(/\D/g, '');
-    if (digitsOnly.length >= 8 && digitsOnly.length <= 15) {
-      try {
-        const parsed = parsePhoneNumberFromString('+' + digitsOnly);
-        if (parsed && parsed.isValid()) {
-          return {
-            original,
-            cleaned: parsed.number,
-            status: 'guessed',
-            action: `Added "+" — detected ${parsed.country} from country code`,
-            country: parsed.country,
-            valid: true,
-            validationReason: ''
-          };
-        }
-      } catch {}
-    }
-  }
-
-  // ============== Try with country hint from email TLD ==============
-  const tldCountry = countryFromEmail(emailHint);
-  if (tldCountry) {
-    try {
-      const parsed = parsePhoneNumberFromString(prepared, tldCountry);
-      if (parsed && parsed.isValid()) {
-        return {
-          original,
-          cleaned: parsed.number,
-          status: 'guessed',
-          action: `Detected ${parsed.country} via email domain`,
-          country: parsed.country,
-          valid: true,
-          validationReason: ''
-        };
-      }
-    } catch {}
-  }
-
-  // ============== Try fallback countries (DACH + Cannes context) ==============
-  for (const fallback of FALLBACK_COUNTRIES) {
-    try {
-      const parsed = parsePhoneNumberFromString(prepared, fallback);
-      if (parsed && parsed.isValid()) {
-        return {
-          original,
-          cleaned: parsed.number,
-          status: 'likely',
-          action: `Pattern matches ${parsed.country} — verify`,
-          country: parsed.country,
-          valid: true,
-          validationReason: ''
-        };
-      }
-    } catch {}
-  }
-
-  // ============== Last resort: parse without validation to give a hint ==============
-  try {
-    const parsed = parsePhoneNumberFromString(prepared, tldCountry || 'DE');
-    if (parsed) {
-      // Got a parse but not valid — still produce a result for review
-      return {
-        original,
-        cleaned: parsed.number || prepared,
-        status: 'needs_review',
-        action: parsed.country ? `Parsed as ${parsed.country} but invalid for that country` : 'Could not validate',
-        country: parsed.country || null,
-        valid: false,
-        validationReason: 'invalid format for detected country'
-      };
-    }
-  } catch {}
-
-  // ============== Truly unparseable ==============
-  return {
-    original,
-    cleaned: prepared,
-    status: 'needs_review',
-    action: 'Could not detect country — needs manual review',
-    country: null,
-    valid: false,
-    validationReason: 'unparseable'
-  };
-}
-
-function countryFromEmail(email) {
+function tldFromEmail(email) {
   if (!email) return null;
   const at = email.lastIndexOf('@');
   if (at < 0) return null;
   const domain = email.slice(at + 1).toLowerCase().trim();
   if (!domain) return null;
-
-  // Multi-part TLDs first
-  if (domain.endsWith('.co.uk')) return 'GB';
-  if (domain.endsWith('.com.au')) return 'AU';
-  if (domain.endsWith('.com.br')) return 'BR';
-  if (domain.endsWith('.com.mx')) return 'MX';
-
+  if (domain.endsWith('.co.uk')) return 'co.uk';
   const lastDot = domain.lastIndexOf('.');
   if (lastDot < 0) return null;
-  const tld = domain.slice(lastDot + 1);
-  return TLD_TO_COUNTRY[tld] || null;
+  return domain.slice(lastDot + 1);
 }
 
-/**
- * Validates a cleaned phone number using libphonenumber
- */
+export function cleanupPhone(rawPhone, emailHint) {
+  const original = (rawPhone || '').trim();
+  if (!original) {
+    return { original: '', cleaned: '', status: 'empty', action: 'No phone', country: null, valid: false };
+  }
+
+  let stripped = original.replace(/[^\d+]/g, '');
+  if (!stripped) {
+    return { original, cleaned: '', status: 'invalid', action: 'No digits', country: null, valid: false };
+  }
+
+  if (stripped.startsWith('00')) stripped = '+' + stripped.slice(2);
+
+  if (stripped.startsWith('+')) {
+    const digits = stripped.slice(1);
+    if (!/^\d{8,15}$/.test(digits)) {
+      return { original, cleaned: stripped, status: 'needs_review', action: 'Has + but invalid format', country: null, valid: false };
+    }
+    const detected = detectCountryFromE164(digits);
+    const cleanedNoSpace = original.replace(/\s+/g, '');
+    if (stripped === cleanedNoSpace) {
+      return { original, cleaned: stripped, status: 'unchanged', action: 'Already E.164', country: detected, valid: true };
+    }
+    return { original, cleaned: stripped, status: 'ok', action: 'Cleaned formatting', country: detected, valid: true };
+  }
+
+  const tld = tldFromEmail(emailHint);
+  const matches = MOBILE_PATTERNS.filter(p => {
+    if (!p.pattern.test(stripped)) return false;
+    // Skip TLD-only patterns when no matching TLD
+    if (p.requireTld && (!tld || !p.tlds || !p.tlds.includes(tld))) return false;
+    return true;
+  });
+
+  if (matches.length === 0) {
+    return {
+      original, cleaned: stripped, status: 'needs_review',
+      action: 'No country mobile pattern matches', country: null, valid: false
+    };
+  }
+
+  if (matches.length === 1) {
+    const m = matches[0];
+    const local = m.skipCcPrefix ? stripped : stripped.slice(m.strip);
+    const cleaned = m.skipCcPrefix ? '+' + stripped : '+' + m.cc + local;
+    return { original, cleaned, status: 'detected', action: m.name, country: m.country, valid: true };
+  }
+
+  if (tld) {
+    const tldMatch = matches.find(m => m.tlds && m.tlds.includes(tld));
+    if (tldMatch) {
+      const local = tldMatch.skipCcPrefix ? stripped : stripped.slice(tldMatch.strip);
+      const cleaned = tldMatch.skipCcPrefix ? '+' + stripped : '+' + tldMatch.cc + local;
+      return {
+        original, cleaned, status: 'detected',
+        action: `${tldMatch.name} (.${tld} email)`, country: tldMatch.country, valid: true
+      };
+    }
+  }
+
+  const m = matches[0];
+  const local = m.skipCcPrefix ? stripped : stripped.slice(m.strip);
+  const cleaned = m.skipCcPrefix ? '+' + stripped : '+' + m.cc + local;
+  return {
+    original, cleaned, status: 'likely',
+    action: `${m.name} (ambiguous: ${matches.slice(1, 3).map(x => x.country).join('/')})`,
+    country: m.country, valid: true
+  };
+}
+
+function detectCountryFromE164(digits) {
+  const codes = [
+    ['971', 'AE'], ['966', 'SA'], ['972', 'IL'], ['420', 'CZ'], ['351', 'PT'], ['353', 'IE'],
+    ['49', 'DE'], ['43', 'AT'], ['41', 'CH'], ['33', 'FR'], ['44', 'GB'], ['39', 'IT'], ['34', 'ES'],
+    ['31', 'NL'], ['32', 'BE'], ['46', 'SE'], ['47', 'NO'], ['45', 'DK'], ['48', 'PL'], ['30', 'GR'],
+    ['90', 'TR'], ['61', 'AU'], ['64', 'NZ'], ['81', 'JP'], ['86', 'CN'], ['1', 'US/CA']
+  ];
+  for (const [code, country] of codes) {
+    if (digits.startsWith(code)) return country;
+  }
+  return null;
+}
+
 export function validateCleaned(cleaned) {
   if (!cleaned) return { valid: false, reason: 'empty' };
   if (!cleaned.startsWith('+')) return { valid: false, reason: 'missing country code' };
-  try {
-    const parsed = parsePhoneNumberFromString(cleaned);
-    if (parsed && parsed.isValid()) return { valid: true, reason: '' };
-    return { valid: false, reason: 'invalid format' };
-  } catch {
-    return { valid: false, reason: 'unparseable' };
-  }
+  const digits = cleaned.slice(1);
+  if (!/^\d{8,15}$/.test(digits)) return { valid: false, reason: 'invalid format' };
+  return { valid: true, reason: '' };
 }

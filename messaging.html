@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778507810 -->
+<!-- deploy-marker 1778520624 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -352,6 +352,16 @@
         <button class="btn" id="btnPhoneCleanup" style="border-color:var(--ink);color:var(--ink)">Review phone numbers</button>
       </div>
 
+      <!-- INTERNATIONAL SMS RESEND -->
+      <div class="card maintenance-section" id="intlSmsSection" style="margin-top:14px;padding:20px 24px;border:1px solid var(--hairline);background:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px">
+          <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--ink-soft);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Recovery</div>
+          <div style="font-size:14px;color:var(--ink);font-weight:500;margin-bottom:4px">Resend SMS to international guests</div>
+          <div style="font-size:12px;color:var(--ink-soft);line-height:1.5">Sends Confirmation SMS to all Approved guests with non-DE phones (Twilio geo-permissions were previously blocking these).</div>
+        </div>
+        <button class="btn" id="btnIntlSmsResend" style="border-color:var(--ink);color:var(--ink)">Send international SMS…</button>
+      </div>
+
       <!-- BROADCAST ACTIONS — to all Approved guests -->
       <div class="card broadcast-section" id="broadcastSection" style="margin-top:28px;padding:24px;border:1px solid var(--hairline);background:rgba(184,150,90,0.04)">
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap">
@@ -400,8 +410,9 @@
     </div>
 
     <div style="padding:18px 28px;background:#fafaf7;border-bottom:1px solid var(--hairline);display:flex;gap:14px;font-size:12px;flex-wrap:wrap">
-      <div><span style="display:inline-block;width:10px;height:10px;background:#4a7c59;border-radius:50%;vertical-align:-1px;margin-right:6px"></span><strong id="phStatOk">0</strong> OK to apply (already valid)</div>
-      <div><span style="display:inline-block;width:10px;height:10px;background:#D4A744;border-radius:50%;vertical-align:-1px;margin-right:6px"></span><strong id="phStatGuessed">0</strong> Guessed country code</div>
+      <div><span style="display:inline-block;width:10px;height:10px;background:#4a7c59;border-radius:50%;vertical-align:-1px;margin-right:6px"></span><strong id="phStatOk">0</strong> Valid (already / formatted)</div>
+      <div><span style="display:inline-block;width:10px;height:10px;background:#5b8db8;border-radius:50%;vertical-align:-1px;margin-right:6px"></span><strong id="phStatGuessed">0</strong> Detected from email</div>
+      <div><span style="display:inline-block;width:10px;height:10px;background:#D4A744;border-radius:50%;vertical-align:-1px;margin-right:6px"></span><strong id="phStatLikely">0</strong> Likely match (verify)</div>
       <div><span style="display:inline-block;width:10px;height:10px;background:#c47466;border-radius:50%;vertical-align:-1px;margin-right:6px"></span><strong id="phStatReview">0</strong> Needs manual review</div>
     </div>
 
@@ -431,6 +442,45 @@
 </div>
 
 <script src="/shared/app.js"></script>
+<!-- INTERNATIONAL SMS RESEND MODAL -->
+<div class="modal-overlay" id="intlSmsModal" style="display:none;position:fixed;inset:0;background:rgba(15,12,9,0.55);z-index:1000;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto">
+  <div style="background:#fff;width:100%;max-width:780px;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden">
+    <div style="padding:24px 28px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h2 style="margin:0;font-family:'Inter',sans-serif;font-size:18px;font-weight:600;color:var(--ink)">International SMS resend</h2>
+        <p style="margin:4px 0 0;font-size:13px;color:var(--ink-soft)" id="intlSmsModalSummary">Loading…</p>
+      </div>
+      <button class="btn btn-ghost" id="closeIntlSmsModal">Close</button>
+    </div>
+
+    <div style="padding:18px 28px;background:#fafaf7;border-bottom:1px solid var(--hairline);font-size:12px;color:var(--ink-soft);line-height:1.5">
+      Sends the confirmation SMS (incl. spam-folder hint) to <strong>all Approved guests</strong> whose phone does <strong>not</strong> start with <code>+49</code>. Email is <strong>not</strong> resent.
+    </div>
+
+    <div id="intlSmsTableWrap" style="max-height:55vh;overflow-y:auto">
+      <table class="data-table" style="width:100%">
+        <thead style="position:sticky;top:0;background:#fafaf7;z-index:1">
+          <tr>
+            <th style="width:32px;padding:8px 12px"><input type="checkbox" id="intlSmsSelectAll" checked></th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Country</th>
+          </tr>
+        </thead>
+        <tbody id="intlSmsTableBody"></tbody>
+      </table>
+    </div>
+
+    <div style="padding:18px 28px;border-top:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-between;background:#fafaf7">
+      <div style="font-size:12px;color:var(--ink-soft)" id="intlSmsSelectedCount">0 selected</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" id="intlSmsCancelBtn">Cancel</button>
+        <button class="btn btn-gold" id="intlSmsSendBtn">Send SMS to selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const App = window.ChateauApp;
 const { showToast, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar } = App;
@@ -471,6 +521,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindBulkBar();
   bindBroadcastButtons();
   bindPhoneCleanup();
+  bindIntlSmsResend();
   await loadGuests();
 });
 
@@ -632,6 +683,7 @@ function renderPhonePreview(summary) {
     : 'All phone numbers are already clean. ✓';
   document.getElementById('phStatOk').textContent = summary.ok;
   document.getElementById('phStatGuessed').textContent = summary.guessed;
+  document.getElementById('phStatLikely').textContent = summary.likely || 0;
   document.getElementById('phStatReview').textContent = summary.needsReview;
 
   if (phoneCleanupPreviews.length === 0) {
@@ -640,25 +692,54 @@ function renderPhonePreview(summary) {
     return;
   }
 
+  const STATUS_COLORS = {
+    ok: '#4a7c59',
+    unchanged: '#4a7c59',
+    guessed: '#5b8db8',
+    likely: '#D4A744',
+    needs_review: '#c47466',
+    invalid: '#c47466'
+  };
+  const STATUS_LABELS = {
+    ok: 'Valid',
+    unchanged: 'Valid',
+    guessed: 'Detected',
+    likely: 'Likely',
+    needs_review: 'Review',
+    invalid: 'Invalid'
+  };
+
   const tbody = document.getElementById('phoneTableBody');
-  tbody.innerHTML = phoneCleanupPreviews.map(p => {
-    const statusColor = p.status === 'ok' ? '#4a7c59' : p.status === 'guessed' ? '#D4A744' : '#c47466';
-    const statusLabel = p.status === 'ok' ? 'OK' : p.status === 'guessed' ? 'Guessed' : 'Review';
-    // Default: select OK + Guessed, skip Review
-    const checked = p.status !== 'needs_review';
+  tbody.innerHTML = phoneCleanupPreviews.map((p, idx) => {
+    const statusColor = STATUS_COLORS[p.status] || '#888';
+    const statusLabel = STATUS_LABELS[p.status] || p.status;
+    // Default checked: ok + guessed + likely (skip review/invalid)
+    const checked = p.status === 'ok' || p.status === 'unchanged' || p.status === 'guessed' || p.status === 'likely' || p.status === 'detected';
+    const countryBadge = p.country
+      ? `<span style="display:inline-block;padding:2px 6px;background:#f0eee8;color:#4a4337;font-size:10px;border-radius:3px;margin-right:6px;font-family:'JetBrains Mono',Menlo,monospace;font-weight:500">${escapeHtml(p.country)}</span>`
+      : '';
     return `
       <tr>
-        <td style="padding:10px 12px"><input type="checkbox" class="ph-row-check" data-id="${p.id}" ${checked ? 'checked' : ''}></td>
+        <td style="padding:10px 12px"><input type="checkbox" class="ph-row-check" data-idx="${idx}" data-id="${p.id}" ${checked ? 'checked' : ''}></td>
         <td style="padding:10px 8px">
           <div style="font-weight:500;color:var(--ink);font-size:13px">${escapeHtml(p.name)}</div>
           <div style="font-size:11px;color:var(--ink-faint)">${escapeHtml(p.email || '—')}</div>
         </td>
         <td style="padding:10px 8px;font-family:'JetBrains Mono',Menlo,monospace;font-size:12px;color:var(--ink-soft)">${escapeHtml(p.original)}</td>
-        <td style="padding:10px 8px;font-family:'JetBrains Mono',Menlo,monospace;font-size:12px;color:var(--ink);font-weight:500">${escapeHtml(p.cleaned) || '—'}</td>
+        <td style="padding:10px 8px">
+          ${countryBadge}
+          <input
+            type="text"
+            class="ph-edit-input"
+            data-idx="${idx}"
+            value="${escapeAttr(p.cleaned)}"
+            style="font-family:'JetBrains Mono',Menlo,monospace;font-size:12px;padding:5px 8px;border:1px solid var(--hairline);border-radius:3px;width:160px;color:var(--ink);font-weight:500"
+            placeholder="+49…"
+          >
+        </td>
         <td style="padding:10px 8px">
           <span style="display:inline-block;padding:2px 8px;background:${statusColor}22;color:${statusColor};font-size:11px;border-radius:3px;margin-right:6px;font-weight:500">${statusLabel}</span>
           <span style="font-size:11px;color:var(--ink-soft)">${escapeHtml(p.action)}</span>
-          ${!p.valid ? `<div style="font-size:11px;color:#c47466;margin-top:3px">⚠ ${escapeHtml(p.validationReason)}</div>` : ''}
         </td>
       </tr>
     `;
@@ -666,8 +747,17 @@ function renderPhonePreview(summary) {
 
   document.getElementById('phApplyBtn').disabled = false;
 
+  // Bind row interactions
   document.querySelectorAll('.ph-row-check').forEach(cb => {
     cb.addEventListener('change', updatePhoneSelectedCount);
+  });
+  document.querySelectorAll('.ph-edit-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const idx = parseInt(e.target.dataset.idx);
+      if (!isNaN(idx) && phoneCleanupPreviews[idx]) {
+        phoneCleanupPreviews[idx].cleaned = e.target.value.trim();
+      }
+    });
   });
   updatePhoneSelectedCount();
 }
@@ -675,6 +765,116 @@ function renderPhonePreview(summary) {
 function updatePhoneSelectedCount() {
   const count = document.querySelectorAll('.ph-row-check:checked').length;
   document.getElementById('phSelectedCount').textContent = `${count} selected`;
+}
+
+// ============== INTERNATIONAL SMS RESEND ==============
+let intlSmsCandidates = [];
+
+function bindIntlSmsResend() {
+  const modal = document.getElementById('intlSmsModal');
+  const openBtn = document.getElementById('btnIntlSmsResend');
+  const closeBtn = document.getElementById('closeIntlSmsModal');
+  const cancelBtn = document.getElementById('intlSmsCancelBtn');
+  const sendBtn = document.getElementById('intlSmsSendBtn');
+  const selectAll = document.getElementById('intlSmsSelectAll');
+
+  if (!openBtn) return;
+
+  openBtn.addEventListener('click', async () => {
+    modal.style.display = 'flex';
+    document.getElementById('intlSmsModalSummary').textContent = 'Loading candidates…';
+    document.getElementById('intlSmsTableBody').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--ink-soft)">Loading…</td></tr>';
+
+    try {
+      const res = await fetch('/api/messaging/sms-resend-international', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preview: true })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+
+      intlSmsCandidates = data.candidates || [];
+      renderIntlSmsPreview(data.count);
+    } catch (err) {
+      document.getElementById('intlSmsTableBody').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:#c47466">Error: ' + escapeHtml(err.message) + '</td></tr>';
+    }
+  });
+
+  closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+  cancelBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+  modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+
+  selectAll.addEventListener('change', e => {
+    document.querySelectorAll('.intl-row-check').forEach(cb => { cb.checked = e.target.checked; });
+    updateIntlSmsSelectedCount();
+  });
+
+  sendBtn.addEventListener('click', async () => {
+    const checked = Array.from(document.querySelectorAll('.intl-row-check:checked'));
+    if (checked.length === 0) {
+      showToast('No recipients selected', 'warning');
+      return;
+    }
+    const ids = checked.map(cb => cb.dataset.id);
+    if (!confirm('Send confirmation SMS to ' + ids.length + ' international guest' + (ids.length !== 1 ? 's' : '') + '? Email is NOT resent.')) return;
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/messaging/sms-resend-international', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ send: true, ids })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+
+      const failedNote = data.failed > 0 ? ' · ' + data.failed + ' failed' : '';
+      showToast('Sent SMS to ' + data.sent + ' guest' + (data.sent !== 1 ? 's' : '') + failedNote, data.failed > 0 ? 'error' : 'success');
+      modal.style.display = 'none';
+      await loadGuests();
+    } catch (err) {
+      showToast('Send failed: ' + err.message, 'error');
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send SMS to selected';
+    }
+  });
+}
+
+function renderIntlSmsPreview(count) {
+  document.getElementById('intlSmsModalSummary').textContent = count > 0
+    ? 'Found ' + count + ' international Approved guest' + (count !== 1 ? 's' : '')
+    : 'No international guests to resend SMS to.';
+
+  if (intlSmsCandidates.length === 0) {
+    document.getElementById('intlSmsTableBody').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--ink-soft)">No candidates. 🎉</td></tr>';
+    document.getElementById('intlSmsSendBtn').disabled = true;
+    return;
+  }
+
+  const tbody = document.getElementById('intlSmsTableBody');
+  tbody.innerHTML = intlSmsCandidates.map(c => {
+    return '<tr>' +
+      '<td style="padding:10px 12px"><input type="checkbox" class="intl-row-check" data-id="' + c.id + '" checked></td>' +
+      '<td style="padding:10px 8px"><div style="font-weight:500;color:var(--ink);font-size:13px">' + escapeHtml(c.name) + '</div>' +
+      '<div style="font-size:11px;color:var(--ink-faint)">' + escapeHtml(c.email || '—') + '</div></td>' +
+      '<td style="padding:10px 8px;font-family:JetBrains Mono,Menlo,monospace;font-size:12px;color:var(--ink)">' + escapeHtml(c.phone) + '</td>' +
+      '<td style="padding:10px 8px;font-size:12px;color:var(--ink-soft)"><span style="display:inline-block;padding:2px 6px;background:#f0eee8;font-size:11px;border-radius:3px;font-family:JetBrains Mono,Menlo,monospace">+' + escapeHtml(c.countryCode) + '</span></td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('intlSmsSendBtn').disabled = false;
+  document.querySelectorAll('.intl-row-check').forEach(cb => {
+    cb.addEventListener('change', updateIntlSmsSelectedCount);
+  });
+  updateIntlSmsSelectedCount();
+}
+
+function updateIntlSmsSelectedCount() {
+  const count = document.querySelectorAll('.intl-row-check:checked').length;
+  document.getElementById('intlSmsSelectedCount').textContent = count + ' selected';
 }
 
 // ============== LOAD ==============
