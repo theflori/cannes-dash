@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778406072 -->
+<!-- deploy-marker 1778493934 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -253,10 +253,17 @@ function renderAll() {
 
 function renderKPIs() {
   const total = allGuests.length;
-  const approved = allGuests.filter(g => ['Approved','Approved Ticket sent'].includes(g.status));
-  const pending = allGuests.filter(g => g.status === 'Pending');
+
+  // Single source of truth: Messaging Status (driven by Invited tab actions)
+  const approved = allGuests.filter(g => g.messagingStatus === 'Approved');
+  const waitlist = allGuests.filter(g => g.messagingStatus === 'Waitlist');
+  const declined = allGuests.filter(g => g.messagingStatus === 'Declined');
+  const pending = allGuests.filter(g => !g.messagingStatus || g.messagingStatus === 'Listed' || g.messagingStatus === 'Semi Approved');
+
+  // Approval rate = Approved / Total RSVPs
   const approvalRate = total > 0 ? Math.round(approved.length / total * 100) : 0;
 
+  // Reach (IG followers of approved guests)
   const withFollowers = allGuests.filter(g => g.igFollowers !== null);
   const approvedWithFollowers = approved.filter(g => g.igFollowers !== null);
   const totalReach = approvedWithFollowers.reduce((s,g) => s + g.igFollowers, 0);
@@ -265,7 +272,7 @@ function renderKPIs() {
     : 0;
 
   setText('kpiTotal', total);
-  setText('kpiTotalMeta', `${pending.length} still pending`);
+  setText('kpiTotalMeta', `${pending.length} pending · ${waitlist.length} waitlisted · ${declined.length} declined`);
   setText('kpiApproval', approvalRate + '%');
   setText('kpiApprovalMeta', `${approved.length} approved of ${total}`);
   setText('kpiReach', formatNumber(totalReach));
@@ -312,18 +319,49 @@ function renderTimeline() {
 }
 
 function renderStatus() {
-  const counts = { 'Pending':0, 'Waitlisted':0, 'Approved':0, 'Approved Ticket sent':0, 'Rejected':0 };
+  // Group by Messaging Status (the workflow status from Invited tab)
+  // Pending bucket = no messaging status yet (RSVPs not yet handled) + Listed + Semi Approved
+  const counts = {
+    'Pending':0,
+    'Listed':0,
+    'Semi Approved':0,
+    'Waitlist':0,
+    'Approved':0,
+    'Declined':0
+  };
   for (const g of allGuests) {
-    const s = g.status || 'Pending';
-    if (s in counts) counts[s]++;
+    const m = g.messagingStatus;
+    if (!m) counts['Pending']++;
+    else if (m in counts) counts[m]++;
   }
+
+  // Only show non-zero buckets to keep chart clean
+  const labels = [];
+  const data = [];
+  const colors = [];
+  const allColors = {
+    'Pending': '#8a8270',
+    'Listed': '#a59b87',
+    'Semi Approved': '#5b8db8',
+    'Waitlist': '#D4A744',
+    'Approved': '#4a7c59',
+    'Declined': '#c47466'
+  };
+  for (const [k, v] of Object.entries(counts)) {
+    if (v > 0) {
+      labels.push(k);
+      data.push(v);
+      colors.push(allColors[k]);
+    }
+  }
+
   drawChart('chartStatus', {
     type: 'doughnut',
     data: {
-      labels: ['Pending','Waitlisted','Approved','Ticket Sent','Rejected'],
+      labels,
       datasets: [{
-        data: Object.values(counts),
-        backgroundColor: ['#D4A744', '#5b8db8', '#4a7c59', '#B8965A', '#c47466'],
+        data,
+        backgroundColor: colors,
         borderColor: '#FBFAF7', borderWidth: 2
       }]
     },
@@ -339,7 +377,7 @@ function renderStatus() {
 
 function renderCumulative() {
   const sorted = allGuests
-    .filter(g => g.createdTime && ['Approved','Approved Ticket sent'].includes(g.status))
+    .filter(g => g.createdTime && g.messagingStatus === 'Approved')
     .sort((a,b) => a.createdTime.localeCompare(b.createdTime));
 
   if (sorted.length === 0) {

@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778406072 -->
+<!-- deploy-marker 1778493934 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,13 +39,13 @@
 
     <div class="page-content">
 
-      <!-- STATS -->
+      <!-- STATS (driven by Messaging Status — single source of truth) -->
       <div class="stats-grid" id="statsGrid">
-        <div class="stat-card"><span class="stat-label">Total</span><span class="stat-value" id="stTotal">—</span></div>
-        <div class="stat-card"><span class="stat-label">Pending</span><span class="stat-value" id="stPending">—</span></div>
-        <div class="stat-card"><span class="stat-label">Approved</span><span class="stat-value" id="stConfirmed">—</span></div>
-        <div class="stat-card"><span class="stat-label">Ticket Sent</span><span class="stat-value gold" id="stVIP">—</span></div>
-        <div class="stat-card"><span class="stat-label">With IG data</span><span class="stat-value" id="stIG">—</span><span class="stat-meta" id="stIGMeta"></span></div>
+        <div class="stat-card"><span class="stat-label">Total RSVPs</span><span class="stat-value" id="stTotal">—</span></div>
+        <div class="stat-card"><span class="stat-label">Pending</span><span class="stat-value" id="stPending">—</span><span class="stat-meta">not yet handled</span></div>
+        <div class="stat-card"><span class="stat-label">Approved</span><span class="stat-value gold" id="stConfirmed">—</span><span class="stat-meta">confirmed + sent</span></div>
+        <div class="stat-card"><span class="stat-label">Waitlisted</span><span class="stat-value" id="stWaitlist">—</span></div>
+        <div class="stat-card"><span class="stat-label">Declined</span><span class="stat-value" id="stDeclined">—</span></div>
       </div>
 
       <!-- FILTERS -->
@@ -190,22 +190,25 @@ function updateNavBadge() {
 
 function renderStats() {
   const total = allGuests.length;
-  const pending = allGuests.filter(g => g.status === 'Pending').length;
-  const waitlisted = allGuests.filter(g => g.status === 'Waitlisted').length;
-  const approved = allGuests.filter(g => ['Approved', 'Approved Ticket sent'].includes(g.status)).length;
-  const ticketSent = allGuests.filter(g => g.status === 'Approved Ticket sent').length;
-  const withIg = allGuests.filter(g => g.igFollowers !== null).length;
-  const igPct = total > 0 ? Math.round(withIg / total * 100) : 0;
+
+  // All stats now driven by Messaging Status — single source of truth across pages
+  // Approved = Messaging Status === 'Approved' (= confirmed via Invited tab, SMS+Email sent)
+  // Waitlisted = Messaging Status === 'Waitlist'
+  // Declined = Messaging Status === 'Declined'
+  // Pending = no Messaging Status OR Listed OR Semi Approved (not yet decided/sent)
+  const approved = allGuests.filter(g => g.messagingStatus === 'Approved').length;
+  const waitlisted = allGuests.filter(g => g.messagingStatus === 'Waitlist').length;
+  const declined = allGuests.filter(g => g.messagingStatus === 'Declined').length;
+  const pending = total - approved - waitlisted - declined;
 
   document.getElementById('stTotal').textContent = total;
   document.getElementById('stPending').textContent = pending;
   document.getElementById('stConfirmed').textContent = approved;
-  document.getElementById('stVIP').textContent = ticketSent;
-  document.getElementById('stIG').textContent = withIg;
-  document.getElementById('stIGMeta').textContent = total > 0 ? `${igPct}% of total` : '';
+  document.getElementById('stWaitlist').textContent = waitlisted;
+  document.getElementById('stDeclined').textContent = declined;
 
   document.getElementById('headerStats').textContent =
-    `${total} guests · ${pending} pending · ${approved} approved`;
+    `${total} guests · ${pending} pending · ${approved} approved · ${waitlisted} waitlisted`;
 }
 
 // ============== TAG FILTER POPULATION ==============
