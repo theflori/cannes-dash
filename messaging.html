@@ -1,4 +1,4 @@
-<!-- deploy-marker 1778505264 -->
+<!-- deploy-marker 1778506899 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,6 +50,45 @@
   .pill-mwait  { background: var(--warning-bg); color: var(--gold-deep); }
   .pill-mapprv { background: var(--success-bg); color: var(--success); }
   .pill-mdecl  { background: var(--error-bg); color: var(--error); }
+
+  /* Issues filter pill - red accent */
+  .pill-issues { border-color: rgba(196, 116, 102, 0.4); color: #c47466; }
+  .pill-issues:hover { border-color: #c47466; color: #b35e4f; }
+  .pill-issues.active { background: #c47466; border-color: #c47466; color: #fff; }
+  .pill-issues.active .count { color: rgba(255,255,255,0.7); }
+
+  /* Error / warning dot before name */
+  .send-status-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-right: 8px;
+    cursor: help;
+  }
+  .send-status-dot.error {
+    background: #c47466;
+    color: #fff;
+  }
+  .send-status-dot.warning {
+    background: #D4A744;
+    color: #4a4337;
+  }
+
+  /* Contact lines under name */
+  .contact-line {
+    display: block;
+    font-size: 11px;
+    color: var(--ink-faint);
+    line-height: 1.5;
+    margin-top: 1px;
+  }
 
   /* Per-row send button */
   .send-btn {
@@ -247,6 +286,7 @@
         <button class="msg-pill" data-filter="Waitlist">Waitlist <span class="count" id="cntWait">—</span></button>
         <button class="msg-pill" data-filter="Approved">Approved <span class="count" id="cntApproved">—</span></button>
         <button class="msg-pill" data-filter="Declined">Declined <span class="count" id="cntDeclined">—</span></button>
+        <button class="msg-pill pill-issues" data-filter="issues" title="Show only guests where the last send had problems">⚠ Issues <span class="count" id="cntIssues">—</span></button>
       </div>
 
       <!-- Empty state -->
@@ -470,8 +510,10 @@ async function loadGuests() {
 // ============== RENDER ==============
 function renderCounts() {
   const counts = { all: messagingGuests.length, Listed: 0, 'Semi Approved': 0, Waitlist: 0, Approved: 0, Declined: 0 };
+  let issuesCount = 0;
   for (const g of messagingGuests) {
     if (counts[g.messagingStatus] !== undefined) counts[g.messagingStatus]++;
+    if (g.lastSendErrorLevel === 'error' || g.lastSendErrorLevel === 'warning') issuesCount++;
   }
   document.getElementById('cntAll').textContent = counts.all;
   document.getElementById('cntListed').textContent = counts.Listed;
@@ -479,10 +521,12 @@ function renderCounts() {
   document.getElementById('cntWait').textContent = counts.Waitlist;
   document.getElementById('cntApproved').textContent = counts.Approved;
   document.getElementById('cntDeclined').textContent = counts.Declined;
+  document.getElementById('cntIssues').textContent = issuesCount;
 
   document.getElementById('headerMeta').textContent =
     `${counts.all} guest${counts.all !== 1 ? 's' : ''} in invites` +
-    (counts.Approved > 0 ? ` · ${counts.Approved} approved` : '');
+    (counts.Approved > 0 ? ` · ${counts.Approved} approved` : '') +
+    (issuesCount > 0 ? ` · ⚠ ${issuesCount} with issues` : '');
 
   // Broadcast section
   document.getElementById('broadcastCount').textContent = counts.Approved;
@@ -518,9 +562,15 @@ function render() {
   const card = document.getElementById('tableCard');
   const empty = document.getElementById('emptyState');
 
-  let rows = currentFilter === 'all'
-    ? messagingGuests
-    : messagingGuests.filter(g => g.messagingStatus === currentFilter);
+  let rows;
+  if (currentFilter === 'all') {
+    rows = messagingGuests;
+  } else if (currentFilter === 'issues') {
+    // Show anyone with a tracked error or warning on their last send
+    rows = messagingGuests.filter(g => g.lastSendErrorLevel === 'error' || g.lastSendErrorLevel === 'warning');
+  } else {
+    rows = messagingGuests.filter(g => g.messagingStatus === currentFilter);
+  }
 
   // Search filter (name, email, instagram, company, referredBy)
   const query = (searchQuery || '').trim().toLowerCase();
@@ -701,6 +751,19 @@ function rowHtml(g) {
     </button>`;
   }
 
+  // Send-error indicator (dot before name + optional inline message)
+  let errorDot = '';
+  let errorDetail = '';
+  if (g.lastSendErrorLevel === 'error') {
+    const msg = g.lastSendError || 'Last send failed';
+    errorDot = `<span class="send-status-dot error" title="${escapeAttr(msg)}">!</span>`;
+    errorDetail = `<span class="contact-line" style="color:#c47466"><strong>Issue:</strong> ${escapeHtml(msg.slice(0, 80))}${msg.length > 80 ? '…' : ''}</span>`;
+  } else if (g.lastSendErrorLevel === 'warning') {
+    const msg = g.lastSendError || 'SMS warning';
+    errorDot = `<span class="send-status-dot warning" title="${escapeAttr(msg)}">!</span>`;
+    errorDetail = `<span class="contact-line" style="color:#a8842c"><strong>Warning:</strong> ${escapeHtml(msg.slice(0, 80))}${msg.length > 80 ? '…' : ''}</span>`;
+  }
+
   return `
     <tr data-id="${g.id}">
       <td class="col-check">
@@ -710,8 +773,13 @@ function rowHtml(g) {
         <div class="name-block">
           ${avatar}
           <div class="name-text">
-            <div style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</div>
-            <div style="font-size:11px;color:var(--ink-faint)">${escapeHtml(g.email)}</div>
+            <div style="display:flex;align-items:center">
+              ${errorDot}
+              <span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>
+            </div>
+            ${g.email ? `<span class="contact-line">${escapeHtml(g.email)}</span>` : ''}
+            ${g.phone ? `<span class="contact-line">${escapeHtml(g.phone)}</span>` : ''}
+            ${errorDetail}
           </div>
         </div>
       </td>
