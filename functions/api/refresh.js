@@ -36,7 +36,9 @@ export async function onRequestPost(context) {
   }
 
   if (body.onlyMissing) {
-    targets = targets.filter(r => !r.fields?.['IG Avatar URL']);
+    // "Not yet scraped" = no IG Last Refresh timestamp.
+    // Fallback: missing avatar URL also counts (older records before refresh tracking).
+    targets = targets.filter(r => !r.fields?.['IG Last Refresh'] && !r.fields?.['IG Avatar URL']);
   }
 
   if (targets.length === 0) {

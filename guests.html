@@ -30,10 +30,15 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
           <span>Reload</span>
         </button>
-        <button class="btn btn-primary" id="refreshBtn" title="Scrape Instagram data for all">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span id="refreshLabel">Refresh IG</span>
-        </button>
+        <div class="scrape-split" style="display:inline-flex;gap:0;border:1px solid var(--ink);border-radius:4px;overflow:hidden">
+          <button class="btn btn-primary" id="refreshNewBtn" title="Scrape only profiles that haven't been scraped yet" style="border:none;border-radius:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+            <span id="refreshNewLabel">Scrape new</span>
+          </button>
+          <button class="btn" id="refreshAllBtn" title="Re-scrape all profiles (overwrites existing data)" style="border:none;border-left:1px solid rgba(255,255,255,0.25);border-radius:0;padding:0 10px;background:var(--ink);color:#fff;font-size:11px">
+            <span id="refreshAllLabel">All</span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -53,6 +58,16 @@
         <div class="grow">
           <input type="text" class="input input-search" id="searchInput" placeholder="Search by name, email, IG, company, referrer…">
         </div>
+        <select class="input" id="inviteFilter" style="width:auto" title="Filter by invite stage">
+          <option value="">All invites</option>
+          <option value="not-listed">Not listed</option>
+          <option value="Listed">Listed</option>
+          <option value="Semi Approved">Semi Approved</option>
+          <option value="Waitlist">Waitlist</option>
+          <option value="Approved">Approved</option>
+          <option value="Declined">Declined</option>
+          <option value="issues">⚠ Send issues</option>
+        </select>
         <select class="input" id="statusFilter" style="width:auto">
           <option value="">All statuses</option>
         </select>
@@ -106,15 +121,17 @@
               <th class="sortable col-ig" data-sort="instagram">Instagram <span class="sort-arrow">▾</span></th>
               <th class="sortable col-followers" data-sort="igFollowers">Followers <span class="sort-arrow">▾</span></th>
               <th class="sortable col-status" data-sort="status">Status <span class="sort-arrow">▾</span></th>
+              <th class="col-invite">Invite</th>
               <th class="col-tags">Referred By</th>
               <th class="col-notes">Notes</th>
               <th class="sortable col-submitted" data-sort="createdTime">Date <span class="sort-arrow">▾</span></th>
               <th class="col-phone">Phone</th>
+              <th class="col-invite-actions">Invite actions</th>
               <th class="col-actions"></th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="10"><div class="empty"><div class="glyph">…</div><div class="title">Loading guests</div></div></td></tr>
+            <tr><td colspan="12"><div class="empty"><div class="glyph">…</div><div class="title">Loading guests</div></div></td></tr>
           </tbody>
         </table>
         </div>
@@ -154,7 +171,7 @@ const STATUS_PILL = {
 let allGuests = [];
 let sortKey = 'createdTime';
 let sortDir = 'desc';
-let filters = { search: '', status: '', tag: '', minFollowers: 0, privacy: '' };
+let filters = { search: '', status: '', invite: '', tag: '', minFollowers: 0, privacy: '' };
 let selectedIds = new Set();
 
 // ============== INIT ==============
@@ -187,7 +204,7 @@ async function loadGuests() {
   } catch (err) {
     showToast('Failed to load: ' + err.message, 'error');
     document.getElementById('tbody').innerHTML =
-      `<tr><td colspan="10"><div class="empty"><div class="glyph">!</div><div class="title">Failed to load</div><div class="subtitle">${escapeHtml(err.message)}</div></div></td></tr>`;
+      `<tr><td colspan="12"><div class="empty"><div class="glyph">!</div><div class="title">Failed to load</div><div class="subtitle">${escapeHtml(err.message)}</div></div></td></tr>`;
   }
 }
 
@@ -249,7 +266,7 @@ function render() {
   const tbody = document.getElementById('tbody');
 
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="glyph">—</div><div class="title">No guests match the filters</div><div class="subtitle">Try clearing the filters or search query.</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="glyph">—</div><div class="title">No guests match the filters</div><div class="subtitle">Try clearing the filters or search query.</div></div></td></tr>`;
     updateSortIndicators();
     updateBulkBar();
     return;
@@ -310,6 +327,59 @@ function rowHtml(g) {
   const submitted = g.createdTime ? formatDate(g.createdTime) : '';
   const isSelected = selectedIds.has(g.id);
 
+  // Invite pill — shows current Messaging Status or "—" if not yet listed
+  const ms = g.messagingStatus || '';
+  const invitePillMap = {
+    'Listed': { cls: 'pill-listed', label: 'Listed' },
+    'Semi Approved': { cls: 'pill-semi', label: 'Semi' },
+    'Waitlist': { cls: 'pill-waitlist', label: 'Waitlist' },
+    'Approved': { cls: 'pill-approved', label: 'Approved' },
+    'Declined': { cls: 'pill-declined', label: 'Declined' }
+  };
+  const inviteCell = ms && invitePillMap[ms]
+    ? `<span class="pill ${invitePillMap[ms].cls}" title="In invites: ${escapeAttr(ms)}">${invitePillMap[ms].label}</span>`
+    : `<span class="muted" title="Not in invites yet">—</span>`;
+
+  // Plus-one chip
+  const plusOneChip = g.plusOneOfName
+    ? `<span class="plus-one-chip" title="Plus-one of ${escapeAttr(g.plusOneOfName)}" style="display:inline-flex;align-items:center;padding:1px 6px;background:rgba(184,150,90,0.12);color:#8a6c2e;border-radius:10px;font-size:10px;font-weight:500;letter-spacing:0.3px;white-space:nowrap;margin-left:6px">+1 · ${escapeHtml(g.plusOneOfName)}</span>`
+    : '';
+
+  // Invite-stage actions per row
+  let inviteActions;
+  if (ms === 'Listed' || ms === 'Semi Approved') {
+    inviteActions = `<div class="action-btn-group">
+      <button class="send-btn waitlist-btn" data-action="waitlist" data-id="${g.id}" title="Set to Waitlist + send waitlist email and SMS">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Waitlist
+      </button>
+      <button class="send-btn confirm-btn" data-action="confirm" data-id="${g.id}" title="Set to Approved + send confirmation email and SMS">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Confirm
+      </button>
+    </div>`;
+  } else if (ms === 'Approved' || ms === 'Waitlist') {
+    inviteActions = `<button class="send-btn" data-action="resend" data-id="${g.id}" title="Re-send the ${ms === 'Approved' ? 'confirmation' : 'waitlist'} email and SMS">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg> Resend
+    </button>`;
+  } else if (ms === 'Declined') {
+    inviteActions = `<span class="muted" style="font-size:11px">declined</span>`;
+  } else {
+    // Not yet in invites
+    inviteActions = `<button class="send-btn list-btn" data-action="list-one" data-id="${g.id}" title="List this guest for invites" style="background:transparent;color:var(--ink);border:1px solid var(--ink)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> List
+    </button>`;
+  }
+
+  // Mobile-only meta block — IG, Followers, Referred By, Phone, Tags, Invite status
+  const mobileMetaParts = [];
+  if (g.instagram) mobileMetaParts.push('IG: <strong><a href="https://instagram.com/' + encodeURIComponent(g.instagram) + '" target="_blank" rel="noopener" style="color:var(--gold-deep,#8a6c2e);text-decoration:underline" onclick="event.stopPropagation()">@' + escapeHtml(g.instagram) + '</a></strong>');
+  if (g.igFollowers !== null && g.igFollowers !== undefined) mobileMetaParts.push('Followers: <strong>' + formatNumber(g.igFollowers) + '</strong>');
+  if (g.phone) mobileMetaParts.push('Phone: <strong>' + escapeHtml(g.phone) + '</strong>');
+  if (g.referredBy) mobileMetaParts.push('Ref: <strong>' + escapeHtml(g.referredBy) + '</strong>');
+  if (g.tags && g.tags.length) mobileMetaParts.push('Tags: <strong>' + g.tags.map(t => escapeHtml(t)).join(', ') + '</strong>');
+  const mobileMeta = mobileMetaParts.length
+    ? '<div class="mobile-row-meta">' + mobileMetaParts.join(' &nbsp;·&nbsp; ') + '</div>'
+    : '';
+
   return `
     <tr class="${isSelected ? 'selected' : ''}" data-id="${g.id}">
       <td class="col-check"><span class="checkbox row-checkbox ${isSelected ? 'checked' : ''}" data-id="${g.id}"></span></td>
@@ -317,18 +387,24 @@ function rowHtml(g) {
         <div class="name-block">
           ${avatar}
           <div class="name-text">
-            <div style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</div>
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+              <span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>
+              ${plusOneChip}
+            </div>
             <div style="font-size:11px;color:var(--ink-faint)">${escapeHtml(g.email)}</div>
+            ${mobileMeta}
           </div>
         </div>
       </td>
       <td class="col-ig">${igCell}</td>
       <td class="col-followers">${followers}</td>
       <td class="col-status"><div class="status-cell">${statusPill}${msgIndicator}</div></td>
+      <td class="col-invite">${inviteCell}</td>
       <td class="col-tags">${referralHtml}</td>
       <td class="col-notes">${notesCell}</td>
       <td class="col-submitted"><span class="muted">${submitted}</span></td>
       <td class="col-phone"><span class="tabular muted">${escapeHtml(g.phone)}</span></td>
+      <td class="col-invite-actions">${inviteActions}</td>
       <td class="col-actions">
         <div class="flex items-center gap-2" style="justify-content:flex-end">
           <button class="icon-btn" data-action="refresh-one" data-id="${g.id}" title="Refresh IG data for this guest">
@@ -343,6 +419,15 @@ function rowHtml(g) {
 function applyFilters(list) {
   return list.filter(g => {
     if (filters.status && g.status !== filters.status) return false;
+    if (filters.invite) {
+      if (filters.invite === 'not-listed') {
+        if (g.messagingStatus) return false;
+      } else if (filters.invite === 'issues') {
+        if (g.lastSendErrorLevel !== 'error' && g.lastSendErrorLevel !== 'warning') return false;
+      } else {
+        if (g.messagingStatus !== filters.invite) return false;
+      }
+    }
     if (filters.tag && !(Array.isArray(g.tags) && g.tags.includes(filters.tag))) return false;
     if (filters.minFollowers > 0) {
       if (g.igFollowers === null || g.igFollowers < filters.minFollowers) return false;
@@ -425,6 +510,10 @@ function bindEvents() {
     filters.status = e.target.value;
     render();
   });
+  document.getElementById('inviteFilter').addEventListener('change', e => {
+    filters.invite = e.target.value;
+    render();
+  });
   document.getElementById('tagFilter').addEventListener('change', e => {
     filters.tag = e.target.value;
     render();
@@ -443,10 +532,11 @@ function bindEvents() {
     render();
   });
   document.getElementById('resetFiltersBtn').addEventListener('click', () => {
-    filters = { search: '', status: '', tag: '', minFollowers: 0, privacy: '' };
+    filters = { search: '', status: '', invite: '', tag: '', minFollowers: 0, privacy: '' };
     sortKey = 'createdTime'; sortDir = 'desc';
     document.getElementById('searchInput').value = '';
     document.getElementById('statusFilter').value = '';
+    document.getElementById('inviteFilter').value = '';
     document.getElementById('tagFilter').value = '';
     document.getElementById('minFollowers').value = '';
     document.getElementById('privacyFilter').value = '';
@@ -454,7 +544,11 @@ function bindEvents() {
     render();
   });
   document.getElementById('reloadBtn').addEventListener('click', loadGuests);
-  document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+  document.getElementById('refreshNewBtn').addEventListener('click', () => refreshScrape(true));
+  document.getElementById('refreshAllBtn').addEventListener('click', () => {
+    if (!confirm('Re-scrape ALL profiles? This overwrites existing follower/avatar data.')) return;
+    refreshScrape(false);
+  });
 
   document.getElementById('selectAllCb').addEventListener('click', selectAllVisible);
 
@@ -539,8 +633,118 @@ function bindRowEvents() {
       if (action === 'edit-ig') openIgEditor(el);
       if (action === 'edit-notes') openNotesEditor(el);
       if (action === 'refresh-one') refreshOne(id, el);
+      if (action === 'confirm') confirmOne(id, el);
+      if (action === 'waitlist') waitlistOne(id, el);
+      if (action === 'resend') resendOne(id, el);
+      if (action === 'list-one') listOne(id, el);
     });
   });
+
+  // Mobile: tap on card body toggles selection (skip if click landed on interactive element)
+  document.getElementById('tbody').addEventListener('click', e => {
+    if (e.target.closest('button, a, input, [data-action], .checkbox')) return;
+    if (window.innerWidth > 700) return;
+    const tr = e.target.closest('tr[data-id]');
+    if (!tr) return;
+    const id = tr.dataset.id;
+    if (selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+    render();
+  });
+}
+
+// ============== INVITE-STAGE ACTIONS ==============
+function setBtnLoading(btn) {
+  if (!btn) return;
+  btn.dataset._origHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+}
+function restoreBtn(btn) {
+  if (!btn) return;
+  if (btn.dataset._origHTML) btn.innerHTML = btn.dataset._origHTML;
+  btn.disabled = false;
+}
+
+async function confirmOne(id, btn) {
+  setBtnLoading(btn);
+  try {
+    const res = await authFetch('/api/messaging/confirm', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds: [id] })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    const parts = [];
+    if (data.confirmed > 0) parts.push(data.confirmed + ' confirmed');
+    if (data.emailSent > 0) parts.push(data.emailSent + ' email');
+    if (data.smsSent > 0) parts.push(data.smsSent + ' SMS');
+    showToast(parts.join(' · ') || 'Done', data.failed && data.failed.length > 0 ? 'error' : 'success');
+    await loadGuests();
+  } catch (err) {
+    showToast('Confirm failed: ' + err.message, 'error');
+    restoreBtn(btn);
+  }
+}
+
+async function waitlistOne(id, btn) {
+  setBtnLoading(btn);
+  try {
+    const res = await authFetch('/api/messaging/waitlist', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds: [id] })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    const parts = [];
+    if (data.waitlisted > 0) parts.push(data.waitlisted + ' waitlisted');
+    if (data.emailSent > 0) parts.push(data.emailSent + ' email');
+    if (data.smsSent > 0) parts.push(data.smsSent + ' SMS');
+    showToast(parts.join(' · ') || 'Done', data.failed && data.failed.length > 0 ? 'error' : 'success');
+    await loadGuests();
+  } catch (err) {
+    showToast('Waitlist failed: ' + err.message, 'error');
+    restoreBtn(btn);
+  }
+}
+
+async function resendOne(id, btn) {
+  setBtnLoading(btn);
+  try {
+    const res = await authFetch('/api/messaging/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds: [id] })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    const parts = [];
+    if (data.sent > 0) parts.push(data.sent + ' sent');
+    if (data.emailSent > 0) parts.push(data.emailSent + ' email');
+    if (data.smsSent > 0) parts.push(data.smsSent + ' SMS');
+    showToast(parts.join(' · ') || 'Done', data.failed && data.failed.length > 0 ? 'error' : 'success');
+    await loadGuests();
+  } catch (err) {
+    showToast('Resend failed: ' + err.message, 'error');
+    restoreBtn(btn);
+  }
+}
+
+async function listOne(id, btn) {
+  setBtnLoading(btn);
+  try {
+    const res = await authFetch('/api/messaging/add', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds: [id] })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    if (data.added > 0) showToast('Added to invites', 'success');
+    else showToast('Already in invites', 'warning');
+    await loadGuests();
+  } catch (err) {
+    showToast('Failed to list: ' + err.message, 'error');
+    restoreBtn(btn);
+  }
 }
 
 // ============== STATUS MENU ==============
@@ -733,24 +937,38 @@ async function bulkUpdateStatus(status) {
 }
 
 // ============== APIFY REFRESH ==============
-async function refreshAll() {
-  const btn = document.getElementById('refreshBtn');
-  const label = document.getElementById('refreshLabel');
-  btn.disabled = true;
-  label.innerHTML = '<span class="spinner"></span>&nbsp;Scraping…';
+async function refreshScrape(onlyMissing) {
+  const newBtn = document.getElementById('refreshNewBtn');
+  const allBtn = document.getElementById('refreshAllBtn');
+  const newLbl = document.getElementById('refreshNewLabel');
+  const allLbl = document.getElementById('refreshAllLabel');
+  newBtn.disabled = true;
+  allBtn.disabled = true;
+  if (onlyMissing) {
+    newLbl.innerHTML = '<span class="spinner"></span>&nbsp;Scraping new…';
+  } else {
+    allLbl.innerHTML = '<span class="spinner"></span>&nbsp;All…';
+  }
   try {
     const res = await authFetch('/api/refresh', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({})
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ onlyMissing })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Refresh failed');
-    showToast(`Refreshed ${data.updated} of ${data.targets} profiles`, 'success');
+    if (data.targets === 0) {
+      showToast(onlyMissing ? 'All profiles already scraped' : 'No profiles to scrape', 'success');
+    } else {
+      showToast('Scraped ' + data.updated + ' of ' + data.targets + ' profile' + (data.targets !== 1 ? 's' : ''), 'success');
+    }
     await loadGuests();
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
-    btn.disabled = false;
-    label.textContent = 'Refresh IG';
+    newBtn.disabled = false;
+    allBtn.disabled = false;
+    newLbl.textContent = 'Scrape new';
+    allLbl.textContent = 'All';
   }
 }
 

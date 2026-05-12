@@ -14,7 +14,12 @@ export async function onRequestGet(context) {
 
   try {
     const records = await fetchAllRecords(env);
-    const guests = records.map(formatRecord);
+    // Build id -> name map for Plus One Of resolution
+    const idToName = new Map();
+    for (const r of records) {
+      idToName.set(r.id, (r.fields && r.fields['Full Name']) || '');
+    }
+    const guests = records.map(r => formatRecord(r, idToName));
     return new Response(JSON.stringify({ guests, total: guests.length }), {
       status: 200,
       headers: {
@@ -53,8 +58,22 @@ async function fetchAllRecords(env) {
   return records;
 }
 
-function formatRecord(record) {
+function formatRecord(record, idToName) {
   const f = record.fields || {};
+  // Plus One Of: linked record field. Value is array of record IDs (or array of names if "use first field" option).
+  const plusOneRaw = f['Plus One Of'];
+  let plusOneOfId = '';
+  let plusOneOfName = '';
+  if (Array.isArray(plusOneRaw) && plusOneRaw.length > 0) {
+    const first = plusOneRaw[0];
+    if (typeof first === 'string' && first.startsWith('rec')) {
+      plusOneOfId = first;
+      plusOneOfName = idToName ? (idToName.get(first) || '') : '';
+    } else {
+      // Already a name string (Airtable returns string if linked-record uses display)
+      plusOneOfName = String(first);
+    }
+  }
   // Normalize Instagram handle: strip @, strip URL prefix
   const igRaw = f['Instagram'] || '';
   const igHandle = String(igRaw)
@@ -86,6 +105,10 @@ function formatRecord(record) {
     lastSendError: f['Last Send Error'] || '',
     lastSendErrorAt: f['Last Send Error At'] || '',
     lastSendErrorLevel: f['Last Send Error Level'] || '',  // 'error' | 'warning' | ''
+    plusOneOfId,
+    plusOneOfName,
+    plusOneCode: f['Plus One Code'] || '',
+    plusOneUsed: f['Plus One Used'] === true,
     createdTime: record.createdTime
   };
 }

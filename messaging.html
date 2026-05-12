@@ -1331,9 +1331,10 @@ function rowHtml(g) {
         <div class="name-block">
           ${avatar}
           <div class="name-text">
-            <div style="display:flex;align-items:center">
+            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               ${errorDot}
               <span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>
+              ${g.plusOneOfName ? '<span class="plus-one-chip" title="Plus-one of ' + escapeAttr(g.plusOneOfName) + '" style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;background:rgba(184,150,90,0.12);color:#8a6c2e;border-radius:10px;font-size:10px;font-weight:500;letter-spacing:0.3px;white-space:nowrap">+1 · ' + escapeHtml(g.plusOneOfName) + '</span>' : ''}
             </div>
             ${emailStyled}
             ${phoneStyled}
