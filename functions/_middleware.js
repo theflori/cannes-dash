@@ -8,7 +8,7 @@ export async function onRequest(context) {
   const url = new URL(request.url);
 
   // Public routes that don't need auth
-  const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html'];
+  const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html', '/api/healthcheck'];
   if (publicRoutes.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))) {
     return next();
   }
