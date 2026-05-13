@@ -186,25 +186,6 @@ export async function sendSms(env, { to, body }) {
     return { sid: 'SKIPPED_NON_DE', status: 'skipped', skipped: true, reason: 'auto_send_de_only' };
   }
 
-  // Auto-send only enabled for +49 (DE).
-  // Other countries: silently skip SMS (no Twilio call, no error tracking).
-  // Email continues to work for these recipients.
-  // Frontend shows a 📵 icon next to these guests; no warning in issues tab.
-  // Re-enable later via int. SMS resend button or manual per-row send when account is unblocked.
-  if (!sanitizedTo.startsWith('+49')) {
-    return { sid: 'SKIPPED_NON_DE', status: 'skipped', skipped: true, reason: 'auto_send_de_only' };
-  }
-
-  // Skip international destinations when env flag is set.
-  // DE and US are the only known-working destinations on this Twilio account.
-  if (isInternationalBlocked(env)) {
-    const isDE = sanitizedTo.startsWith('+49');
-    const isUS = sanitizedTo.startsWith('+1');
-    if (!isDE && !isUS) {
-      throw new SmsSkippedError('international destinations disabled', sanitizedTo);
-    }
-  }
-
   const url = `https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`;
   const auth = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
 

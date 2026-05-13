@@ -8,7 +8,12 @@ export async function onRequest(context) {
   const url = new URL(request.url);
 
   // Public routes that don't need auth
-  const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html'];
+  // Stripe checkout + webhook MUST be public — they're called from emails (no session)
+  // and from Stripe servers (signature-verified instead of session).
+  const publicRoutes = [
+    '/login', '/api/login', '/api/logout', '/login.html',
+    '/api/stripe/checkout', '/api/stripe/webhook'
+  ];
   if (publicRoutes.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))) {
     return next();
   }

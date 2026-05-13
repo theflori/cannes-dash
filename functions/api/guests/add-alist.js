@@ -29,7 +29,6 @@ export async function onRequestPost(context) {
 
   const fields = {
     'Full Name': name,
-    'Tags': ['A-List'],
     'Plus One Allowance': allowance,
     'Source': 'Manual A-List',
     // A-List are automatically confirmed. They get no outreach (no email/SMS),
