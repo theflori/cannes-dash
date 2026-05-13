@@ -422,7 +422,7 @@ function rowHtml(g) {
 
   // Invite-stage actions per row
   let inviteActions;
-  const isAList = Array.isArray(g.tags) && g.tags.includes('A-List');
+  const isAList = isAListGuest(g);
   if (isAList) {
     // A-List = auto-confirmed, no outreach. Just show a green check, plus reject if you change your mind.
     inviteActions = `<div class="action-btn-group" style="align-items:center">
@@ -484,7 +484,7 @@ function rowHtml(g) {
           ${avatar}
           <div class="name-text">
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-              ${g.tags && g.tags.includes('A-List') ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}${renderAllowanceChip(g)}
+              ${isAListGuest(g) ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}${renderAllowanceChip(g)}
               ${g.hasPaid ? '<span class="paid-badge" title="Confirmed via Stripe payment — cannot be rejected" style="display:inline-flex;align-items:center;padding:1px 7px;background:#1f7a3c;color:#fff;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-left:6px">✓ PAID</span>' : ''}
               ${plusOneChip}
             </div>
@@ -525,7 +525,12 @@ function applyFilters(list) {
         if (g.messagingStatus !== filters.invite) return false;
       }
     }
-    if (filters.tag && !(Array.isArray(g.tags) && g.tags.includes(filters.tag))) return false;
+    if (filters.tag) {
+      // Match via Tags field if it exists, OR via Source = 'Manual A-List' for A-List filter
+      const hasTag = Array.isArray(g.tags) && g.tags.includes(filters.tag);
+      const matchesSource = (filters.tag === 'A-List' && g.source === 'Manual A-List');
+      if (!hasTag && !matchesSource) return false;
+    }
     if (filters.minFollowers > 0) {
       if (g.igFollowers === null || g.igFollowers < filters.minFollowers) return false;
     }
