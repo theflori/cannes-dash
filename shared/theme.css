@@ -1223,3 +1223,11 @@ tbody tr:hover .row-edit-btn { opacity: 0.7; }
 .fit-dot.active.tier-good   { background: #5fa86e; }
 .fit-dot.active.tier-medium { background: #d68842; }
 .fit-dot.active.tier-weak   { background: #d4b94a; }
+
+/* Reject button — red, dezent */
+.send-btn.reject-btn:hover {
+  background: rgba(196,84,74,0.08) !important;
+  border-color: #c4544a !important;
+  color: #a83a30 !important;
+}
+.send-btn.reject-btn svg { width: 10px; height: 10px; }

@@ -363,9 +363,14 @@ function rowHtml(g) {
       </button>
     </div>`;
   } else if (ms === 'Approved' || ms === 'Waitlist') {
-    inviteActions = `<button class="send-btn" data-action="resend" data-id="${g.id}" title="Re-send the ${ms === 'Approved' ? 'confirmation' : 'waitlist'} email and SMS">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg> Resend
-    </button>`;
+    inviteActions = `<div class="action-btn-group">
+      <button class="send-btn" data-action="resend" data-id="${g.id}" title="Re-send the ${ms === 'Approved' ? 'confirmation' : 'waitlist'} email and SMS">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg> Resend
+      </button>
+      <button class="send-btn reject-btn" data-action="reject" data-id="${g.id}" title="Reject this guest — sends apology email/SMS, marks Declined" style="background:transparent;color:#c4544a;border:1px solid rgba(196,84,74,0.4);padding:5px 8px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
   } else if (ms === 'Declined') {
     inviteActions = `<span class="muted" style="font-size:11px">declined</span>`;
   } else {
@@ -642,6 +647,7 @@ function bindRowEvents() {
       if (action === 'confirm') confirmOne(id, el);
       if (action === 'waitlist') waitlistOne(id, el);
       if (action === 'resend') resendOne(id, el);
+      if (action === 'reject') rejectOne(id, el);
       if (action === 'list-one') listOne(id, el);
     });
   });
@@ -749,6 +755,36 @@ async function listOne(id, btn) {
     await loadGuests();
   } catch (err) {
     showToast('Failed to list: ' + err.message, 'error');
+    restoreBtn(btn);
+  }
+}
+
+async function rejectOne(id, btn) {
+  const guest = allGuests.find(g => g.id === id);
+  const displayName = guest && guest.name ? guest.name : 'this guest';
+  const currentStatus = guest ? (guest.messagingStatus || '') : '';
+
+  const message = 'Reject ' + displayName + '?\n\nThis will:\n· Send an apology email (capacity-based wording)\n· Send an apology SMS (DE numbers only)\n· Set status to "Declined"\n\nCurrent status: ' + currentStatus + '\n\nThis action cannot be auto-reversed.';
+  if (!confirm(message)) return;
+
+  setBtnLoading(btn);
+  try {
+    const res = await authFetch('/api/messaging/reject', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds: [id] })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    const parts = [];
+    if (data.rejected > 0) parts.push(data.rejected + ' rejected');
+    if (data.emailSent > 0) parts.push(data.emailSent + ' email');
+    if (data.smsSent > 0) parts.push(data.smsSent + ' SMS');
+    if (data.skipped && data.skipped.length > 0) parts.push(data.skipped.length + ' skipped');
+    if (data.failed && data.failed.length > 0) parts.push(data.failed.length + ' failed');
+    showToast(parts.join(' · ') || 'Done', data.failed && data.failed.length > 0 ? 'error' : 'success');
+    await loadGuests();
+  } catch (err) {
+    showToast('Reject failed: ' + err.message, 'error');
     restoreBtn(btn);
   }
 }

@@ -682,3 +682,57 @@ export function render24hReminderSms({ name, declineCode }) {
   // SMS reveals the address in the 24h reminder
   return `${firstName ? firstName + ', ' : ''}tomorrow at Château Privé · ${EVENT.address} · doors ${EVENT.doors}. Bring ID + IG handle. Can't attend? ${shortUrl(declineCode)}`;
 }
+
+// ============== REJECTION (capacity-based) ==============
+
+export function renderRejectionEmail({ name }) {
+  const firstName = (name || '').split(' ')[0] || 'there';
+  const subject = 'Château Privé · 15 May · Update on your invitation';
+
+  const text = `Hi ${firstName},
+
+Due to overwhelming demand and venue capacity, we've had to make some difficult decisions about the final guest list for Château Privé on 15 May.
+
+Unfortunately, we are no longer able to confirm your attendance. We truly apologise for the late notice and the disappointment this brings.
+
+Your details remain with us for future invitations.
+
+With our apologies,
+The Château Privé team`;
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f5f4f0;font-family:Georgia,'Times New Roman',serif;color:#1a1814">
+  <div style="max-width:560px;margin:0 auto;padding:48px 24px;background:#fff">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="font-family:'Inter',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#8a6c2e">Château Privé</div>
+      <div style="margin-top:8px;font-size:12px;color:#6b6b66">Cannes · 15 May 2026</div>
+    </div>
+
+    <div style="font-size:16px;line-height:1.7;color:#1a1814">
+      <p style="margin:0 0 16px">Hi ${escapeHtml(firstName)},</p>
+
+      <p style="margin:0 0 16px">Due to overwhelming demand and venue capacity, we've had to make some difficult decisions about the final guest list for Château Privé on 15 May.</p>
+
+      <p style="margin:0 0 16px">Unfortunately, we are no longer able to confirm your attendance. We truly apologise for the late notice and the disappointment this brings.</p>
+
+      <p style="margin:0 0 16px">Your details remain with us for future invitations.</p>
+
+      <p style="margin:24px 0 0">With our apologies,<br>
+      <span style="color:#6b5430;font-style:italic">The Château Privé team</span></p>
+    </div>
+
+    <div style="margin-top:48px;padding-top:24px;border-top:1px solid #e8e6dd;font-size:11px;color:#999;text-align:center;line-height:1.6">
+      This message was sent to confirmed guests of Château Privé · Cannes 2026.<br>
+      If you have already booked travel and need assistance, simply reply to this email.
+    </div>
+  </div>
+</body></html>`;
+
+  return { subject, text, html };
+}
+
+export function renderRejectionSms({ name }) {
+  const firstName = (name || '').split(' ')[0] || '';
+  return `${firstName ? firstName + ', ' : ''}unfortunately we can no longer hold your spot for Château Privé on 15 May — the guest list filled faster than we could manage. We're sorry. Full details by email.`;
+}
