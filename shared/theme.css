@@ -1053,25 +1053,48 @@ tbody tr:hover .row-edit-btn { opacity: 0.7; }
 
 /* ============== GLOBAL MOBILE PORTRAIT — < 700px ============== */
 @media (max-width: 700px) {
-  /* Compact page header — title and counter stack with proper alignment */
+  /* Page header — title block top row full-width, buttons below full-width */
   .page-header {
     height: auto !important;
     padding: 10px 14px !important;
+    flex-wrap: wrap !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
   }
   .page-header .page-title-block {
+    flex: 1 1 100% !important;
     flex-wrap: wrap !important;
     align-items: center !important;
     row-gap: 4px !important;
     column-gap: 10px !important;
+    min-width: 0 !important;
   }
-  .page-header .page-title { font-size: 18px !important; }
+  .page-header .page-title { font-size: 20px !important; }
   .page-header .page-subtitle {
     font-size: 11px !important;
     flex-basis: 100%;
     line-height: 1.4;
     color: var(--ink-faint);
     margin-left: 36px;
+    white-space: normal;
   }
+  /* Buttons row — full width below title, scroll horizontally if needed */
+  .page-header > .flex.items-center.gap-2 {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .page-header > .flex.items-center.gap-2::-webkit-scrollbar { display: none; }
+  .page-header > .flex.items-center.gap-2 .btn,
+  .page-header > .flex.items-center.gap-2 .scrape-split {
+    flex-shrink: 0;
+    font-size: 12px !important;
+    padding: 8px 10px !important;
+  }
+
   .page-content { padding: 14px !important; }
 
   /* Stats grid — 2 columns at most */
