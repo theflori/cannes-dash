@@ -1,87 +1,77 @@
-// deploy-marker 1778406072-hardened
+// deploy-marker 1778406072-minimal
 // Protects everything except /login and /api/login
 // If user has valid session cookie -> pass through
 // Otherwise -> redirect to /login
-//
-// HARDENED: top-level try/catch. Any unexpected error returns
-// a structured JSON 500 (for /api/*) or 302 to /login (for pages)
-// instead of a bare runtime 500.
 
 export async function onRequest(context) {
+  const { request, next, env } = context;
+  const url = new URL(request.url);
+
   try {
-    return await routeRequest(context);
+    // Public routes that don't need auth
+    const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html', '/api/healthcheck'];
+    if (publicRoutes.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))) {
+      return next();
+    }
+
+    // Allow static assets (favicon etc) without auth
+    const staticAssets = ['/favicon.ico', '/robots.txt'];
+    if (staticAssets.includes(url.pathname)) {
+      return next();
+    }
+
+    // Allow shared assets (theme.css, app.js, sidebar.html) without auth
+    // — needed for login page to render properly
+    if (url.pathname.startsWith('/shared/')) {
+      return next();
+    }
+
+    // Check session cookie
+    const cookies = parseCookies(request.headers.get('Cookie') || '');
+    const session = cookies['cp_session'];
+
+    if (!session) {
+      return redirectToLogin(url);
+    }
+
+    // Verify session token (simple HMAC check)
+    const isValid = await verifySession(session, env.SESSION_SECRET);
+    if (!isValid) {
+      return redirectToLogin(url);
+    }
+
+    // Authenticated -> proceed
+    return next();
   } catch (err) {
-    const msg = (err && err.message) || String(err);
-    console.error('[middleware] uncaught:', msg, '\n', err && err.stack);
-    const url = new URL(context.request.url);
+    // Never let the middleware itself produce a bare 500.
+    // Log the failure and let the user back to /login instead of a dead end.
+    console.error('[middleware] uncaught on', url.pathname, '-', (err && err.message) || err);
     if (url.pathname.startsWith('/api/')) {
       return new Response(
         JSON.stringify({
           error: 'middleware-failed',
-          message: msg.substring(0, 500)
+          path: url.pathname,
+          message: ((err && err.message) || String(err)).substring(0, 500)
         }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
-    return Response.redirect(new URL('/login', url).toString(), 302);
-  }
-}
-
-async function routeRequest(context) {
-  const { request, next, env } = context;
-  const url = new URL(request.url);
-
-  // Public routes that don't need auth
-  const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html', '/api/healthcheck'];
-  if (publicRoutes.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))) {
-    return next();
-  }
-
-  // Stripe webhook posts from Stripe servers, not from a logged-in browser session.
-  // It MUST stay public — Stripe verifies via signature header instead of cookie.
-  if (url.pathname === '/api/stripe/webhook') {
-    return next();
-  }
-
-  // Allow static assets (favicon etc) without auth
-  const staticAssets = ['/favicon.ico', '/robots.txt'];
-  if (staticAssets.includes(url.pathname)) {
-    return next();
-  }
-
-  // Allow shared assets (theme.css, app.js, sidebar.html) without auth
-  // — needed for login page to render properly
-  if (url.pathname.startsWith('/shared/')) {
-    return next();
-  }
-
-  // Check session cookie
-  const cookies = parseCookies(request.headers.get('Cookie') || '');
-  const session = cookies['cp_session'];
-
-  if (!session) {
-    return redirectToLogin(url);
-  }
-
-  // Guard against missing SESSION_SECRET — would otherwise crash verifySession
-  if (!env.SESSION_SECRET) {
-    console.error('[middleware] SESSION_SECRET not set');
-    if (url.pathname.startsWith('/api/')) {
+    // For page navigation: clear the (possibly corrupt) session cookie and
+    // send them to /login. Avoids redirect loops if /login itself fails.
+    if (url.pathname === '/login' || url.pathname === '/login.html') {
       return new Response(
-        JSON.stringify({ error: 'server-misconfigured', message: 'SESSION_SECRET missing' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
+        'Login page failed to load. Error: ' + ((err && err.message) || String(err)),
+        { status: 500, headers: { 'Content-Type': 'text/plain' } }
       );
     }
-    return redirectToLogin(url);
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': '/login',
+        'Set-Cookie': 'cp_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0'
+      }
+    });
   }
-
-  const isValid = await verifySession(session, env.SESSION_SECRET);
-  if (!isValid) {
-    return redirectToLogin(url);
-  }
-
-  // Authenticated -> proceed
-  return next();
 }
 
 function parseCookies(cookieHeader) {
