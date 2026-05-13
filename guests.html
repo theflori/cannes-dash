@@ -43,6 +43,12 @@
     </header>
 
     <div class="page-content">
+      <!-- SMS AUTO-SEND NOTE -->
+      <div style="margin:0 0 16px;padding:10px 14px;background:rgba(184,150,90,0.08);border-left:3px solid #b8965a;border-radius:0 4px 4px 0;font-size:12px;color:#6b5430;line-height:1.4">
+        Auto-send delivers SMS only to <strong>+49 (Germany)</strong>. International recipients get email only. Manual international SMS available in the Invites tab.
+      </div>
+
+      
 
       <!-- STATS (driven by Messaging Status — single source of truth) -->
       <div class="stats-grid" id="statsGrid">
@@ -147,7 +153,7 @@
 <script src="/shared/app.js"></script>
 <script>
 const App = window.ChateauApp;
-const { showToast, authFetch, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar } = App;
+const { showToast, authFetch, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar, renderFitIndicator } = App;
 
 // ============== STATE ==============
 const STATUS_OPTIONS = ['Pending', 'Waitlisted', 'Approved', 'Approved Ticket sent', 'Rejected'];
@@ -388,7 +394,7 @@ function rowHtml(g) {
           ${avatar}
           <div class="name-text">
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-              <span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>
+              <span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}
               ${plusOneChip}
             </div>
             <div style="font-size:11px;color:var(--ink-faint)">${escapeHtml(g.email)}</div>

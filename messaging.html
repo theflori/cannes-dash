@@ -245,6 +245,12 @@
     </header>
 
     <div class="page-content">
+      <!-- SMS AUTO-SEND NOTE -->
+      <div style="margin:0 0 16px;padding:10px 14px;background:rgba(184,150,90,0.08);border-left:3px solid #b8965a;border-radius:0 4px 4px 0;font-size:12px;color:#6b5430;line-height:1.4">
+        Auto-send delivers SMS only to <strong>+49 (Germany)</strong>. International recipients get email only. Use <strong>Send international SMS</strong> below to dispatch manually per country.
+      </div>
+
+      
 
       <!-- Search + filters (matches Guests page filtering) -->
       <div class="filter-bar" style="margin-bottom:14px">
@@ -355,9 +361,9 @@
       <!-- INTERNATIONAL SMS RESEND -->
       <div class="card maintenance-section" id="intlSmsSection" style="margin-top:14px;padding:20px 24px;border:1px solid var(--hairline);background:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
         <div style="flex:1;min-width:240px">
-          <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--ink-soft);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Recovery</div>
-          <div style="font-size:14px;color:var(--ink);font-weight:500;margin-bottom:4px">Resend SMS to international guests</div>
-          <div style="font-size:12px;color:var(--ink-soft);line-height:1.5">Sends Confirmation SMS to all Approved guests with non-DE phones (Twilio geo-permissions were previously blocking these).</div>
+          <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--ink-soft);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Manual · International SMS</div>
+          <div style="font-size:14px;color:var(--ink);font-weight:500;margin-bottom:4px">Send SMS to international guests</div>
+          <div style="font-size:12px;color:var(--ink-soft);line-height:1.5">Auto-send only delivers SMS to +49 (DE). Use this to manually send the confirmation SMS to Approved guests in other countries, filterable by country code.</div>
         </div>
         <button class="btn" id="btnIntlSmsResend" style="border-color:var(--ink);color:var(--ink)">Send international SMS…</button>
       </div>
@@ -454,7 +460,12 @@
     </div>
 
     <div style="padding:18px 28px;background:#fafaf7;border-bottom:1px solid var(--hairline);font-size:12px;color:var(--ink-soft);line-height:1.5">
-      Sends the confirmation SMS (incl. spam-folder hint) to <strong>all Approved guests</strong> whose phone does <strong>not</strong> start with <code>+49</code>. Email is <strong>not</strong> resent.
+      Sends the confirmation SMS (incl. spam-folder hint) to selected <strong>Approved</strong> guests with non-DE phone numbers. Email is <strong>not</strong> resent. Use the country filter to send batch-by-batch (e.g. only Italy, only UAE).
+    </div>
+
+    <div id="intlCountryFilterBar" style="padding:12px 28px;background:#fff;border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--ink-soft);letter-spacing:1px;text-transform:uppercase;margin-right:4px">Country:</span>
+      <div id="intlCountryChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
 
     <div id="intlSmsTableWrap" style="max-height:55vh;overflow-y:auto">
@@ -483,7 +494,7 @@
 
 <script>
 const App = window.ChateauApp;
-const { showToast, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar } = App;
+const { showToast, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar, renderFitIndicator } = App;
 
 // ============== STATE ==============
 const MSG_STATUS_OPTIONS = ['Listed', 'Semi Approved', 'Waitlist', 'Approved', 'Declined'];
@@ -843,29 +854,74 @@ function bindIntlSmsResend() {
   });
 }
 
+let intlCountryFilter = 'all'; // 'all' or specific country code like '39'
+
+const COUNTRY_NAMES = {
+  '1': 'US/CA', '33': 'France', '34': 'Spain', '39': 'Italy', '41': 'Switzerland',
+  '43': 'Austria', '44': 'UK', '45': 'Denmark', '46': 'Sweden', '47': 'Norway',
+  '31': 'Netherlands', '32': 'Belgium', '351': 'Portugal', '353': 'Ireland',
+  '30': 'Greece', '48': 'Poland', '420': 'Czech', '90': 'Turkey',
+  '971': 'UAE', '966': 'Saudi Arabia', '972': 'Israel', '20': 'Egypt',
+  '7': 'Russia', '61': 'Australia', '64': 'NZ', '81': 'Japan', '86': 'China',
+  '52': 'Mexico', '55': 'Brazil', '54': 'Argentina', '27': 'South Africa'
+};
+
+function countryLabel(cc) {
+  return COUNTRY_NAMES[cc] || ('+' + cc);
+}
+
 function renderIntlSmsPreview(count) {
   document.getElementById('intlSmsModalSummary').textContent = count > 0
     ? 'Found ' + count + ' international Approved guest' + (count !== 1 ? 's' : '')
     : 'No international guests to resend SMS to.';
 
   if (intlSmsCandidates.length === 0) {
+    document.getElementById('intlCountryChips').innerHTML = '';
     document.getElementById('intlSmsTableBody').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;color:var(--ink-soft)">No candidates. 🎉</td></tr>';
     document.getElementById('intlSmsSendBtn').disabled = true;
     return;
   }
 
+  // Build country chips: group candidates by country code, show count
+  const countryCount = {};
+  intlSmsCandidates.forEach(c => {
+    const cc = c.countryCode || '?';
+    countryCount[cc] = (countryCount[cc] || 0) + 1;
+  });
+  const sortedCountries = Object.keys(countryCount).sort((a, b) => countryCount[b] - countryCount[a]);
+
+  const chipsHtml = ['<button class="intl-country-chip" data-cc="all" style="padding:4px 10px;border-radius:14px;border:1px solid var(--ink);background:' + (intlCountryFilter === 'all' ? 'var(--ink)' : '#fff') + ';color:' + (intlCountryFilter === 'all' ? '#fff' : 'var(--ink)') + ';font-size:11px;cursor:pointer;font-family:Inter,sans-serif">All <span style="opacity:0.7">(' + intlSmsCandidates.length + ')</span></button>']
+    .concat(sortedCountries.map(cc => {
+      const active = intlCountryFilter === cc;
+      return '<button class="intl-country-chip" data-cc="' + cc + '" style="padding:4px 10px;border-radius:14px;border:1px solid var(--ink);background:' + (active ? 'var(--ink)' : '#fff') + ';color:' + (active ? '#fff' : 'var(--ink)') + ';font-size:11px;cursor:pointer;font-family:Inter,sans-serif">' + escapeHtml(countryLabel(cc)) + ' <span style="opacity:0.7">(' + countryCount[cc] + ')</span></button>';
+    }));
+  document.getElementById('intlCountryChips').innerHTML = chipsHtml.join('');
+
+  // Wire chip clicks
+  document.querySelectorAll('.intl-country-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      intlCountryFilter = btn.dataset.cc;
+      renderIntlSmsPreview(intlSmsCandidates.length);
+    });
+  });
+
+  // Filter candidates by country
+  const visible = intlCountryFilter === 'all'
+    ? intlSmsCandidates
+    : intlSmsCandidates.filter(c => c.countryCode === intlCountryFilter);
+
   const tbody = document.getElementById('intlSmsTableBody');
-  tbody.innerHTML = intlSmsCandidates.map(c => {
+  tbody.innerHTML = visible.map(c => {
     return '<tr>' +
       '<td style="padding:10px 12px"><input type="checkbox" class="intl-row-check" data-id="' + c.id + '" checked></td>' +
       '<td style="padding:10px 8px"><div style="font-weight:500;color:var(--ink);font-size:13px">' + escapeHtml(c.name) + '</div>' +
       '<div style="font-size:11px;color:var(--ink-faint)">' + escapeHtml(c.email || '—') + '</div></td>' +
       '<td style="padding:10px 8px;font-family:JetBrains Mono,Menlo,monospace;font-size:12px;color:var(--ink)">' + escapeHtml(c.phone) + '</td>' +
-      '<td style="padding:10px 8px;font-size:12px;color:var(--ink-soft)"><span style="display:inline-block;padding:2px 6px;background:#f0eee8;font-size:11px;border-radius:3px;font-family:JetBrains Mono,Menlo,monospace">+' + escapeHtml(c.countryCode) + '</span></td>' +
+      '<td style="padding:10px 8px;font-size:12px;color:var(--ink-soft)"><span style="display:inline-block;padding:2px 6px;background:#f0eee8;font-size:11px;border-radius:3px">' + escapeHtml(countryLabel(c.countryCode)) + '</span></td>' +
       '</tr>';
   }).join('');
 
-  document.getElementById('intlSmsSendBtn').disabled = false;
+  document.getElementById('intlSmsSendBtn').disabled = visible.length === 0;
   document.querySelectorAll('.intl-row-check').forEach(cb => {
     cb.addEventListener('change', updateIntlSmsSelectedCount);
   });
@@ -1218,7 +1274,7 @@ function rowHtml(g) {
           <div class="name-text">
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               ${errorDot}
-              <span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>
+              <span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}
               ${g.plusOneOfName ? '<span class="plus-one-chip" title="Plus-one of ' + escapeAttr(g.plusOneOfName) + '" style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;background:rgba(184,150,90,0.12);color:#8a6c2e;border-radius:10px;font-size:10px;font-weight:500;letter-spacing:0.3px;white-space:nowrap">+1 · ' + escapeHtml(g.plusOneOfName) + '</span>' : ''}
             </div>
             ${emailStyled}

@@ -64,7 +64,7 @@ export async function onRequestPost(context) {
 
         const smsText = renderConfirmationSms({ name, declineCode });
         try {
-          await sendSms(env, { to: phone, body: smsText });
+          await sendSms({ ...env, INTL_SMS_BYPASS: 'true' }, { to: phone, body: smsText });
           await airtablePatch(env, id, { 'Last Message Sent At': new Date().toISOString() });
           await clearSendError(env, id);
           sent.push({ id, name, phone });

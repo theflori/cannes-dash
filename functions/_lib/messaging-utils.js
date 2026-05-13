@@ -173,10 +173,17 @@ export async function sendSms(env, { to, body }) {
   }
 
   // Hard-sanitize the destination number to E.164 (no spaces, dashes, parens).
-  // Twilio rejects formatted numbers like "+45 22 15 34 00" — must be "+4522153400".
   const sanitizedTo = sanitizeE164(to);
   if (!sanitizedTo) {
     throw new Error(`Invalid phone number for SMS: "${to}"`);
+  }
+
+  // Auto-send only fires for +49 (DE). Non-DE numbers are silently skipped here so the
+  // bulk send endpoints (confirm/waitlist/etc) don't trigger Twilio 21408 errors at scale.
+  // International sends are done manually via the "Send international SMS" UI which sets
+  // env.INTL_SMS_BYPASS at request time to bypass this check.
+  if (!sanitizedTo.startsWith('+49') && env.INTL_SMS_BYPASS !== 'true') {
+    return { sid: 'SKIPPED_NON_DE', status: 'skipped', skipped: true, reason: 'auto_send_de_only' };
   }
 
   // Auto-send only enabled for +49 (DE).
