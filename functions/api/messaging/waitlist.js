@@ -50,7 +50,10 @@ export async function onRequestPost(context) {
 
       let emailOk = false;
       try {
-        const c = renderWaitlistEmail({ name, declineCode });
+        // Build Stripe pay URL if Stripe is configured. PUBLIC_SITE_URL is the dashboard URL.
+        const dashUrl = (env.DASHBOARD_PUBLIC_URL || '').replace(/\/$/, '');
+        const payUrl = (env.STRIPE_SECRET_KEY && dashUrl) ? `${dashUrl}/api/stripe/checkout?rid=${encodeURIComponent(recordId)}` : '';
+        const c = renderWaitlistEmail({ name, declineCode, payUrl });
         await sendEmail(env, { to: email, subject: c.subject, html: c.html, text: c.text });
         emailOk = true;
         results.emailSent++;

@@ -48,6 +48,12 @@ export async function onRequestPost(context) {
         continue;
       }
 
+      // Paid guests cannot be rejected
+      if (f['Has Paid'] === true) {
+        results.skipped.push({ id: recordId, reason: 'paid-guest-protected' });
+        continue;
+      }
+
       const email = (f['Email'] || '').trim();
       const phone = normalizePhone(f['Phone'] || '');
       const name = f['Full Name'] || 'Guest';

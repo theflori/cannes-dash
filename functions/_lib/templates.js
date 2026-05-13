@@ -178,10 +178,15 @@ Can't attend? <a href="${escapeHtml(declineUrl)}" style="color:#d4b884;text-deco
 
 // ============== WAITLIST EMAIL ==============
 
-export function renderWaitlistEmail({ name, declineCode }) {
+export function renderWaitlistEmail({ name, declineCode, payUrl }) {
   const firstName = (name || '').split(' ')[0] || 'there';
   const subject = "You're on the waitlist — Château Privé · 15 May 2026";
   const declineUrl = shortUrl(declineCode);
+  const hasPay = !!payUrl;
+  // Three pay tiers — passed as separate amounts via query string
+  const payUrl1k = hasPay ? (payUrl + (payUrl.includes('?') ? '&' : '?') + 'tier=1000') : '';
+  const payUrl4k = hasPay ? (payUrl + (payUrl.includes('?') ? '&' : '?') + 'tier=4000') : '';
+  const payUrl10k = hasPay ? (payUrl + (payUrl.includes('?') ? '&' : '?') + 'tier=10000') : '';
 
   const text = `Dear ${firstName},
 
@@ -189,7 +194,19 @@ We've placed you on the waitlist for Château Privé — Friday, 15 May 2026 in 
 
 We'll be in touch in the coming days as we finalize the guest list. If a spot opens up, you'll hear from us first.
 
-No action needed from your side at this point.
+${hasPay ? `— Skip the waitlist —
+A limited number of Concierge Access seats remain. Choose your tier:
+
+€1,000 — Standard Concierge:
+${payUrl1k}
+
+€4,000 — Premium Concierge:
+${payUrl4k}
+
+€10,000 — Patron:
+${payUrl10k}
+
+` : ''}No action needed from your side at this point.
 
 Can no longer attend?
 ${declineUrl}
@@ -272,6 +289,64 @@ We'll be in touch in the coming days as we finalize the guest list. If a spot op
 <tr><td class="px-48" align="center" style="padding:32px 48px">
 <p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.6;color:rgba(241,236,223,0.6);font-style:italic">No action needed from your side at this point.</p>
 </td></tr>
+
+${hasPay ? `<tr><td class="px-48" align="center" style="padding:8px 48px 32px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1F1812;border:1px solid rgba(184,150,90,0.3)">
+<tr><td align="center" style="padding:32px 28px 24px">
+<p style="margin:0 0 8px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Skip the Waitlist</p>
+<p style="margin:0 0 18px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:22px;line-height:1.4;color:#F1ECDF">Choose your tier</p>
+<p style="margin:0 0 26px;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.6;color:rgba(241,236,223,0.7)">
+A limited number of Concierge seats remain. Confirm immediately at the tier that suits you — guaranteed entry, secure Stripe checkout.
+</p>
+
+<!-- TIER 1 -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">
+<tr><td align="center" style="padding:14px 16px;background-color:#231D17;border:1px solid rgba(184,150,90,0.25)">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+<td align="left" style="font-family:'EB Garamond',Georgia,serif">
+<div style="font-size:16px;color:#F1ECDF;font-weight:500;line-height:1.3">€1,000</div>
+<div style="font-size:12px;color:rgba(241,236,223,0.55);margin-top:2px">Standard Concierge</div>
+</td>
+<td align="right">
+<a href="${escapeHtml(payUrl1k)}" style="display:inline-block;padding:10px 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#F1ECDF;text-decoration:none;letter-spacing:3px;text-transform:uppercase;font-weight:500;border:1px solid rgba(241,236,223,0.4)">Choose</a>
+</td>
+</tr></table>
+</td></tr></table>
+
+<!-- TIER 2 (highlighted) -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">
+<tr><td align="center" style="padding:14px 16px;background-color:#2B2218;border:1px solid rgba(184,150,90,0.6);position:relative">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+<td align="left" style="font-family:'EB Garamond',Georgia,serif">
+<div style="font-size:16px;color:#F1ECDF;font-weight:500;line-height:1.3">€4,000 <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#d4b884;font-weight:500;margin-left:6px">Most chosen</span></div>
+<div style="font-size:12px;color:rgba(241,236,223,0.65);margin-top:2px">Premium Concierge · priority entry, reserved seating</div>
+</td>
+<td align="right">
+<a href="${escapeHtml(payUrl4k)}" style="display:inline-block;padding:10px 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#0F0C09;text-decoration:none;letter-spacing:3px;text-transform:uppercase;font-weight:500;background-color:#B8965A">Choose</a>
+</td>
+</tr></table>
+</td></tr></table>
+
+<!-- TIER 3 -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:6px">
+<tr><td align="center" style="padding:14px 16px;background-color:#231D17;border:1px solid rgba(184,150,90,0.25)">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
+<td align="left" style="font-family:'EB Garamond',Georgia,serif">
+<div style="font-size:16px;color:#F1ECDF;font-weight:500;line-height:1.3">€10,000</div>
+<div style="font-size:12px;color:rgba(241,236,223,0.55);margin-top:2px">Patron · everything plus dinner table</div>
+</td>
+<td align="right">
+<a href="${escapeHtml(payUrl10k)}" style="display:inline-block;padding:10px 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#F1ECDF;text-decoration:none;letter-spacing:3px;text-transform:uppercase;font-weight:500;border:1px solid rgba(241,236,223,0.4)">Choose</a>
+</td>
+</tr></table>
+</td></tr></table>
+
+<p style="margin:18px 0 0;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.45);line-height:1.5">
+Secure Stripe Checkout &middot; Cancel anytime before payment
+</p>
+</td></tr>
+</table>
+</td></tr>` : ''}
 
 <tr><td class="px-48" align="center" style="padding:0 48px 48px">
 <p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:12px;color:rgba(241,236,223,0.55)">

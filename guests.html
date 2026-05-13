@@ -26,6 +26,10 @@
         <span class="page-subtitle" id="headerStats">Loading…</span>
       </div>
       <div class="flex items-center gap-2">
+        <button class="btn" id="btnAddAList" title="Manually add an A-List guest" style="border-color:#b8965a;color:#8a6c2e">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style="width:14px;height:14px"><polygon points="12 2 14.6 8.6 22 9.3 16.5 14.3 18 22 12 18 6 22 7.5 14.3 2 9.3 9.4 8.6 12 2"/></svg>
+          <span>Add A-List</span>
+        </button>
         <button class="btn" id="reloadBtn" title="Reload from Airtable">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
           <span>Reload</span>
@@ -145,6 +149,56 @@
 
     </div>
   </main>
+</div>
+
+<!-- A-LIST ADD MODAL -->
+<div class="modal-overlay" id="alistModal" style="display:none;position:fixed;inset:0;background:rgba(15,12,9,0.55);z-index:1000;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto">
+  <div style="background:#fff;width:100%;max-width:520px;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden">
+    <div style="padding:22px 26px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h2 style="margin:0;font-family:'Inter',sans-serif;font-size:16px;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:8px">
+          <svg viewBox="0 0 24 24" fill="#b8965a" stroke="none" style="width:16px;height:16px"><polygon points="12 2 14.6 8.6 22 9.3 16.5 14.3 18 22 12 18 6 22 7.5 14.3 2 9.3 9.4 8.6 12 2"/></svg>
+          Add A-List guest
+        </h2>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--ink-soft)">Manual entry. Tagged "A-List" + starred in lists.</p>
+      </div>
+      <button class="btn btn-ghost" id="alistCloseBtn">Close</button>
+    </div>
+
+    <div style="padding:22px 26px;display:flex;flex-direction:column;gap:14px">
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px">Full name *</label>
+        <input class="input" id="alistName" type="text" placeholder="Anna Wintour" style="width:100%">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px">Email *</label>
+        <input class="input" id="alistEmail" type="email" placeholder="anna@example.com" style="width:100%">
+      </div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1">
+          <label style="display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px">Phone</label>
+          <input class="input" id="alistPhone" type="tel" placeholder="+4915123456789" style="width:100%">
+        </div>
+        <div style="flex:1">
+          <label style="display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px">Instagram</label>
+          <input class="input" id="alistIg" type="text" placeholder="@handle (without @)" style="width:100%">
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px">Notes / Referred by</label>
+        <textarea class="input" id="alistNotes" rows="2" placeholder="Why are they A-List?" style="width:100%;font-family:inherit"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;padding:10px 12px;background:#faf6ed;border:1px solid rgba(184,150,90,0.3);border-radius:4px;font-size:12px;color:#6b5430">
+        <input type="checkbox" id="alistAutoList" checked style="margin:0">
+        <label for="alistAutoList" style="cursor:pointer">Also add to invites list immediately (set Messaging Status = Listed)</label>
+      </div>
+    </div>
+
+    <div style="padding:16px 26px;border-top:1px solid var(--hairline);display:flex;justify-content:flex-end;gap:8px;background:#fafaf7">
+      <button class="btn btn-ghost" id="alistCancelBtn">Cancel</button>
+      <button class="btn btn-gold" id="alistSaveBtn">Add to A-List</button>
+    </div>
+  </div>
 </div>
 
 <!-- Hidden context menu / status menu -->
@@ -367,9 +421,11 @@ function rowHtml(g) {
       <button class="send-btn" data-action="resend" data-id="${g.id}" title="Re-send the ${ms === 'Approved' ? 'confirmation' : 'waitlist'} email and SMS">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg> Resend
       </button>
-      <button class="send-btn reject-btn" data-action="reject" data-id="${g.id}" title="Reject this guest — sends apology email/SMS, marks Declined" style="background:transparent;color:#c4544a;border:1px solid rgba(196,84,74,0.4);padding:5px 8px">
+      ${g.hasPaid
+        ? '<button class="send-btn reject-btn" disabled title="Paid guest — cannot be rejected" style="background:transparent;color:#cbb;border:1px solid #e5e5e5;padding:5px 8px;opacity:0.5;cursor:not-allowed"><svg viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"2\\"><rect x=\\"3\\" y=\\"11\\" width=\\"18\\" height=\\"11\\" rx=\\"2\\"/><path d=\\"M7 11V7a5 5 0 0 1 10 0v4\\"/></svg></button>'
+        : `<button class="send-btn reject-btn" data-action="reject" data-id="${g.id}" title="Reject this guest — sends apology email/SMS, marks Declined" style="background:transparent;color:#c4544a;border:1px solid rgba(196,84,74,0.4);padding:5px 8px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      </button>`}
     </div>`;
   } else if (ms === 'Declined') {
     inviteActions = `<span class="muted" style="font-size:11px">declined</span>`;
@@ -399,7 +455,8 @@ function rowHtml(g) {
           ${avatar}
           <div class="name-text">
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px">
-              <span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}
+              ${g.tags && g.tags.includes('A-List') ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}
+              ${g.hasPaid ? '<span class="paid-badge" title="Confirmed via Stripe payment — cannot be rejected" style="display:inline-flex;align-items:center;padding:1px 7px;background:#1f7a3c;color:#fff;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-left:6px">✓ PAID</span>' : ''}
               ${plusOneChip}
             </div>
             <div style="font-size:11px;color:var(--ink-faint)">${escapeHtml(g.email)}</div>
@@ -555,6 +612,7 @@ function bindEvents() {
     render();
   });
   document.getElementById('reloadBtn').addEventListener('click', loadGuests);
+  bindAListModal();
   document.getElementById('refreshNewBtn').addEventListener('click', () => refreshScrape(true));
   document.getElementById('refreshAllBtn').addEventListener('click', () => {
     if (!confirm('Re-scrape ALL profiles? This overwrites existing follower/avatar data.')) return;
@@ -787,6 +845,65 @@ async function rejectOne(id, btn) {
     showToast('Reject failed: ' + err.message, 'error');
     restoreBtn(btn);
   }
+}
+
+// ============== A-LIST MANUAL ENTRY ==============
+function bindAListModal() {
+  const modal = document.getElementById('alistModal');
+  const openBtn = document.getElementById('btnAddAList');
+  const closeBtn = document.getElementById('alistCloseBtn');
+  const cancelBtn = document.getElementById('alistCancelBtn');
+  const saveBtn = document.getElementById('alistSaveBtn');
+  if (!openBtn) return;
+
+  function open() {
+    document.getElementById('alistName').value = '';
+    document.getElementById('alistEmail').value = '';
+    document.getElementById('alistPhone').value = '';
+    document.getElementById('alistIg').value = '';
+    document.getElementById('alistNotes').value = '';
+    document.getElementById('alistAutoList').checked = true;
+    modal.style.display = 'flex';
+    setTimeout(() => document.getElementById('alistName').focus(), 50);
+  }
+  function close() { modal.style.display = 'none'; }
+
+  openBtn.addEventListener('click', open);
+  closeBtn.addEventListener('click', close);
+  cancelBtn.addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+  saveBtn.addEventListener('click', async () => {
+    const name = document.getElementById('alistName').value.trim();
+    const email = document.getElementById('alistEmail').value.trim();
+    const phone = document.getElementById('alistPhone').value.trim();
+    const ig = document.getElementById('alistIg').value.trim().replace(/^@/, '');
+    const notes = document.getElementById('alistNotes').value.trim();
+    const autoList = document.getElementById('alistAutoList').checked;
+
+    if (!name) return showToast('Name required', 'error');
+    if (!email || !email.includes('@')) return showToast('Valid email required', 'error');
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Adding…';
+    try {
+      const res = await authFetch('/api/guests/add-alist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone, instagram: ig, notes, autoList })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      showToast('Added "' + name + '" to A-List', 'success');
+      close();
+      await loadGuests();
+    } catch (err) {
+      showToast('Failed to add: ' + err.message, 'error');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Add to A-List';
+    }
+  });
 }
 
 // ============== STATUS MENU ==============
