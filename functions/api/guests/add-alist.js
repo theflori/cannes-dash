@@ -1,12 +1,9 @@
-// deploy-marker add-alist-v2
+// deploy-marker add-alist-v1
 // POST /api/guests/add-alist
-// Body: { name: string, allowance?: '0'|'1'|'2'|'3'|'unlimited' }
-// Creates new Airtable record tagged "A-List" with the given Plus One Allowance.
-// No email, no instagram — just name + allowance. Email/phone can be added manually later.
+// Body: { name, email, phone, instagram, notes, autoList }
+// Creates new Airtable record tagged "A-List".
 
 import { jsonError, jsonOk } from '../../_lib/messaging-utils.js';
-
-const VALID_ALLOWANCE = new Set(['0', '1', '2', '3', 'unlimited']);
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -19,24 +16,20 @@ export async function onRequestPost(context) {
   catch { return jsonError('Invalid JSON', 400); }
 
   const name = (body.name || '').trim();
-  if (!name || name.length < 2) return jsonError('name required (min 2 chars)', 400);
-
-  let allowance = String(body.allowance || '0').toLowerCase();
-  if (allowance === 'open' || allowance === '*' || allowance === 'all') allowance = 'unlimited';
-  if (!VALID_ALLOWANCE.has(allowance)) {
-    return jsonError('allowance must be 0, 1, 2, 3, or unlimited', 400);
-  }
+  const email = (body.email || '').trim();
+  if (!name) return jsonError('name required', 400);
+  if (!email || !email.includes('@')) return jsonError('valid email required', 400);
 
   const fields = {
     'Full Name': name,
-    'Tags': ['A-List'],
-    'Plus One Allowance': allowance,
-    'Source': 'Manual A-List',
-    // A-List are automatically confirmed. They get no outreach (no email/SMS),
-    // but appear in Guests + Invites lists as "Approved" — they're on the door list.
-    'Status': 'Approved',
-    'Messaging Status': 'Approved'
+    'Email': email,
+    'Tags': ['A-List']
   };
+  if (body.phone) fields['Phone'] = String(body.phone).trim();
+  if (body.instagram) fields['Instagram'] = String(body.instagram).trim().replace(/^@/, '');
+  if (body.notes) fields['Internal Notes'] = String(body.notes).trim();
+  if (body.autoList) fields['Messaging Status'] = 'Listed';
+  fields['Source'] = 'Manual A-List';
 
   const url = `https://api.airtable.com/v0/${env.AIRTABLE_BASE_ID}/${env.AIRTABLE_TABLE_NAME}`;
   const res = await fetch(url, {
