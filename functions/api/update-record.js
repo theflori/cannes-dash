@@ -11,8 +11,7 @@ const ALLOWED_FIELDS = new Set([
   'Instagram'  // re-included so this could replace update-instagram.js if you want
 ]);
 
-import { safe } from '../_lib/safe-handler.js';
-export const onRequestPost = safe("POST /api/update-record", async (context) => {
+export async function onRequestPost(context) {
   const { request, env } = context;
 
   const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME'];
@@ -79,7 +78,7 @@ export const onRequestPost = safe("POST /api/update-record", async (context) => 
   } catch (err) {
     return jsonError('Update failed: ' + err.message, 500);
   }
-});
+}
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {

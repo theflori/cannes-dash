@@ -14,8 +14,7 @@ import {
 } from '../../_lib/messaging-utils.js';
 import { renderWaitlistEmail, renderWaitlistSms } from '../../_lib/templates.js';
 
-import { safe } from '../../_lib/safe-handler.js';
-export const onRequestPost = safe("POST /api/messaging/waitlist", async (context) => {
+export async function onRequestPost(context) {
   const { request, env } = context;
 
   const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME', 'RESEND_API_KEY'];
@@ -30,12 +29,6 @@ export const onRequestPost = safe("POST /api/messaging/waitlist", async (context
   const recordIds = Array.isArray(body.recordIds) ? body.recordIds.filter(x => typeof x === 'string') : [];
   if (recordIds.length === 0) return jsonError('Missing recordIds', 400);
   if (recordIds.length > 50) return jsonError('Too many records (max 50)', 400);
-
-  // emailOnly=true: just re-send the waitlist email (used for "Send pay option to waitlist")
-  // - keeps existing decline code
-  // - skips SMS
-  // - skips status change (assumes already on Waitlist)
-  const emailOnly = body.emailOnly === true;
 
   const results = { waitlisted: 0, emailSent: 0, smsSent: 0, failed: [], skipped: [] };
 
@@ -53,22 +46,11 @@ export const onRequestPost = safe("POST /api/messaging/waitlist", async (context
         continue;
       }
 
-      // In emailOnly mode, skip non-waitlist guests
-      if (emailOnly && f['Messaging Status'] !== 'Waitlist') {
-        results.skipped.push({ id: recordId, reason: 'not-on-waitlist (' + (f['Messaging Status'] || 'empty') + ')' });
-        continue;
-      }
-
-      // Reuse existing decline code in emailOnly, otherwise generate
-      const declineCode = emailOnly
-        ? (f['Decline Code'] || await generateUniqueCode(env, 'Decline Code'))
-        : await generateUniqueCode(env, 'Decline Code');
+      const declineCode = await generateUniqueCode(env, 'Decline Code');
 
       let emailOk = false;
       try {
-        const dashUrl = (env.DASHBOARD_PUBLIC_URL || '').replace(/\/$/, '');
-        const payUrl = (env.STRIPE_SECRET_KEY && dashUrl) ? `${dashUrl}/api/stripe/checkout?rid=${encodeURIComponent(recordId)}` : '';
-        const c = renderWaitlistEmail({ name, declineCode, payUrl });
+        const c = renderWaitlistEmail({ name, declineCode });
         await sendEmail(env, { to: email, subject: c.subject, html: c.html, text: c.text });
         emailOk = true;
         results.emailSent++;
@@ -78,7 +60,7 @@ export const onRequestPost = safe("POST /api/messaging/waitlist", async (context
       }
 
       let smsOk = false;
-      if (!emailOnly && phone && env.TWILIO_ACCOUNT_SID) {
+      if (phone && env.TWILIO_ACCOUNT_SID) {
         try {
           const smsBody = renderWaitlistSms({ name, declineCode });
           await sendSms(env, { to: phone, body: smsBody });
@@ -90,23 +72,16 @@ export const onRequestPost = safe("POST /api/messaging/waitlist", async (context
         }
       }
 
-      if (emailOnly) {
-        // Only update last-sent timestamp + decline code (if newly generated)
-        const patch = { 'Last Message Sent At': new Date().toISOString() };
-        if (!f['Decline Code']) patch['Decline Code'] = declineCode;
-        await airtablePatch(env, recordId, patch);
-      } else {
-        await airtablePatch(env, recordId, {
-          'Messaging Status': 'Waitlist',
-          'Decline Code': declineCode,
-          'Last Message Sent At': new Date().toISOString()
-        });
-      }
+      await airtablePatch(env, recordId, {
+        'Messaging Status': 'Waitlist',
+        'Decline Code': declineCode,
+        'Last Message Sent At': new Date().toISOString()
+      });
 
       // Track outcome
       if (!emailOk) {
         await markSendError(env, recordId, 'Waitlist email failed: ' + (results.failed.find(x=>x.id===recordId && x.channel==='email')?.reason || 'unknown'));
-      } else if (!emailOnly && phone && env.TWILIO_ACCOUNT_SID && !smsOk) {
+      } else if (phone && env.TWILIO_ACCOUNT_SID && !smsOk) {
         await markSendWarning(env, recordId, 'SMS failed (email ok): ' + (results.failed.find(x=>x.id===recordId && x.channel==='sms')?.reason || 'unknown'));
       } else {
         await clearSendError(env, recordId);
@@ -120,4 +95,4 @@ export const onRequestPost = safe("POST /api/messaging/waitlist", async (context
   }
 
   return jsonOk(results);
-});
+}

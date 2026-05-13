@@ -6,8 +6,7 @@
 //   - if already set (Listed/Semi Approved/etc.) → SKIP, leave as-is
 // Response: { added: number, skipped: number, skippedDetails: [{id, currentStatus}] }
 
-import { safe } from '../../_lib/safe-handler.js';
-export const onRequestPost = safe("POST /api/messaging/add", async (context) => {
+export async function onRequestPost(context) {
   const { request, env } = context;
 
   const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME'];
@@ -87,7 +86,7 @@ export const onRequestPost = safe("POST /api/messaging/add", async (context) => 
   return new Response(JSON.stringify({
     ok: true, added, skipped: skipped.length, skippedDetails: skipped
   }), { headers: { 'Content-Type': 'application/json' } });
-});
+}
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {

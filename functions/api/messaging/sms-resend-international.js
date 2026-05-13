@@ -13,8 +13,7 @@ import {
 } from '../../_lib/messaging-utils.js';
 import { renderConfirmationSms } from '../../_lib/templates.js';
 
-import { safe } from '../../_lib/safe-handler.js';
-export const onRequestPost = safe("POST /api/messaging/sms-resend-international", async (context) => {
+export async function onRequestPost(context) {
   const { request, env } = context;
   if (!env.AIRTABLE_TOKEN) return jsonError('Missing AIRTABLE_TOKEN', 500);
 
@@ -82,7 +81,7 @@ export const onRequestPost = safe("POST /api/messaging/sms-resend-international"
   }
 
   return jsonError('Must specify { preview: true } or { send: true, ids: [...] }', 400);
-});
+}
 
 async function fetchAllRecords(env) {
   const records = [];

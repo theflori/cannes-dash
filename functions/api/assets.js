@@ -4,8 +4,7 @@
 // Requires R2 binding configured in Cloudflare Pages:
 //   Settings → Functions → R2 bucket bindings → Variable name: ASSETS, Bucket: chateau-brand-assets
 
-import { safe } from '../_lib/safe-handler.js';
-export const onRequestGet = safe("GET /api/assets", async (context) => {
+export async function onRequestGet(context) {
   const { env } = context;
 
   if (!env.ASSETS) {
@@ -43,7 +42,7 @@ export const onRequestGet = safe("GET /api/assets", async (context) => {
   } catch (err) {
     return jsonError('R2 list failed: ' + err.message, 500);
   }
-});
+}
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {

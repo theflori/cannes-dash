@@ -3,8 +3,7 @@
 // Streams the file from R2 to the browser
 // Used for display in <img>, downloads, modal previews
 
-import { safe } from '../../../_lib/safe-handler.js';
-export const onRequestGet = safe("GET /api/assets/file/:path", async (context) => {
+export async function onRequestGet(context) {
   const { params, env } = context;
 
   if (!env.ASSETS) return new Response('R2 not configured', { status: 500 });
@@ -28,4 +27,4 @@ export const onRequestGet = safe("GET /api/assets/file/:path", async (context) =
   } catch (err) {
     return new Response('Error: ' + err.message, { status: 500 });
   }
-});
+}

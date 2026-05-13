@@ -8,8 +8,7 @@ const ALLOWED_FIELDS = new Set([
   'Tags'
 ]);
 
-import { safe } from '../_lib/safe-handler.js';
-export const onRequestPost = safe("POST /api/update-bulk", async (context) => {
+export async function onRequestPost(context) {
   const { request, env } = context;
 
   for (const k of ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME']) {
@@ -67,7 +66,7 @@ export const onRequestPost = safe("POST /api/update-bulk", async (context) => {
   return new Response(JSON.stringify({ ok: true, updated }), {
     headers: { 'Content-Type': 'application/json' }
   });
-});
+}
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {

@@ -2,8 +2,7 @@
 // GET /api/avatar?url=<urlencoded Instagram CDN URL>
 // Proxies Instagram avatar images server-side to bypass hotlinking protection
 
-import { safe } from '../_lib/safe-handler.js';
-export const onRequestGet = safe("GET /api/avatar", async (context) => {
+export async function onRequestGet(context) {
   const { request } = context;
   const url = new URL(request.url);
   const target = url.searchParams.get('url');
@@ -61,4 +60,4 @@ export const onRequestGet = safe("GET /api/avatar", async (context) => {
   } catch (err) {
     return new Response('Proxy fetch failed: ' + err.message, { status: 502 });
   }
-});
+}

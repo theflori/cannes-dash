@@ -8,8 +8,7 @@
 import { jsonError, jsonOk } from '../../_lib/messaging-utils.js';
 import { cleanupPhone, validateCleaned } from '../../_lib/phone-cleanup.js';
 
-import { safe } from '../../_lib/safe-handler.js';
-export const onRequestPost = safe("POST /api/messaging/phone-cleanup-preview", async (context) => {
+export async function onRequestPost(context) {
   const { request, env } = context;
 
   if (!env.AIRTABLE_TOKEN) return jsonError('Missing AIRTABLE_TOKEN', 500);
@@ -61,7 +60,7 @@ export const onRequestPost = safe("POST /api/messaging/phone-cleanup-preview", a
   };
 
   return jsonOk({ previews, summary });
-});
+}
 
 async function fetchAllRecords(env) {
   const records = [];
