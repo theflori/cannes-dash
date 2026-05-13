@@ -183,35 +183,27 @@ export function renderWaitlistEmail({ name, declineCode, payUrl }) {
   const subject = "You're on the waitlist — Château Privé · 15 May 2026";
   const declineUrl = shortUrl(declineCode);
   const hasPay = !!payUrl;
-  // Three pay tiers — passed as separate amounts via query string
-  const payUrl1k = hasPay ? (payUrl + (payUrl.includes('?') ? '&' : '?') + 'tier=1000') : '';
-  const payUrl4k = hasPay ? (payUrl + (payUrl.includes('?') ? '&' : '?') + 'tier=4000') : '';
-  const payUrl10k = hasPay ? (payUrl + (payUrl.includes('?') ? '&' : '?') + 'tier=10000') : '';
 
   const text = `Dear ${firstName},
 
-We've placed you on the waitlist for Château Privé — Friday, 15 May 2026 in Cannes Californie.
+Thank you for your interest in Château Privé — Friday, 15 May 2026, Cannes Californie.
 
-We'll be in touch in the coming days as we finalize the guest list. If a spot opens up, you'll hear from us first.
+This is a single evening, in a single room, with a guest list quietly assembled over months. We've reviewed your details and placed you on the waitlist.
 
-${hasPay ? `— Skip the waitlist —
-A limited number of Concierge Access seats remain. Choose your tier:
+To preserve the atmosphere, the final composition is reviewed up until the day itself. In rare cases, even confirmed guests may need to be released — we mention this not to alarm, but to be honest about how much care the room demands.
 
-€1,000 — Standard Concierge:
-${payUrl1k}
+If you'd prefer certainty, a small number of Concierge seats remain — a fixed spot, no waiting, no reshuffling.
 
-€4,000 — Premium Concierge:
-${payUrl4k}
+${hasPay ? `Reserve a Concierge seat — €4,000:
+${payUrl}
 
-€10,000 — Patron:
-${payUrl10k}
-
-` : ''}No action needed from your side at this point.
+` : ''}If a spot opens from the waitlist, you'll hear from us first.
 
 Can no longer attend?
 ${declineUrl}
 
-— Château Privé
+With our regards,
+Château Privé
 `;
 
   const html = `<!DOCTYPE html>
@@ -264,10 +256,13 @@ body { margin: 0; padding: 0; }
 
 <p style="margin:0 0 20px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:#F1ECDF;text-align:left">Dear ${escapeHtml(firstName)},</p>
 <p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
-We've placed you on the waitlist for <span style="color:#F1ECDF">Château Privé</span>, a private evening during the 79<sup style="font-size:11px">th</sup> Cannes Film Festival on <span style="color:#F1ECDF">Friday, 15 May 2026</span>.
+Thank you for your interest in <span style="color:#F1ECDF">Château Privé</span> — a private evening during the 79<sup style="font-size:11px">th</sup> Cannes Film Festival on <span style="color:#F1ECDF">Friday, 15 May 2026</span>.
 </p>
-<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
-We'll be in touch in the coming days as we finalize the guest list. If a spot opens up, you'll hear from us first.
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
+This is a single evening, in a single room, with a guest list quietly assembled over months. We've reviewed your details and placed you on the waitlist.
+</p>
+<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:15px;line-height:1.65;color:rgba(241,236,223,0.62);text-align:left;font-style:italic;border-left:2px solid rgba(184,150,90,0.5);padding:8px 0 8px 16px">
+To preserve the atmosphere, the final composition is reviewed up until the day itself. In rare cases, even confirmed guests may need to be released — we mention this not to alarm, but to be honest about how much care the room demands.
 </p>
 
 </td></tr>
@@ -286,63 +281,25 @@ We'll be in touch in the coming days as we finalize the guest list. If a spot op
 </table>
 </td></tr>
 
-<tr><td class="px-48" align="center" style="padding:32px 48px">
-<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.6;color:rgba(241,236,223,0.6);font-style:italic">No action needed from your side at this point.</p>
+<tr><td class="px-48" align="center" style="padding:32px 48px 8px">
+<p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.6;color:rgba(241,236,223,0.6);font-style:italic">If a spot opens from the waitlist, you'll hear from us first.</p>
 </td></tr>
 
 ${hasPay ? `<tr><td class="px-48" align="center" style="padding:8px 48px 32px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1F1812;border:1px solid rgba(184,150,90,0.3)">
-<tr><td align="center" style="padding:32px 28px 24px">
-<p style="margin:0 0 8px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Skip the Waitlist</p>
-<p style="margin:0 0 18px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:22px;line-height:1.4;color:#F1ECDF">Choose your tier</p>
-<p style="margin:0 0 26px;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.6;color:rgba(241,236,223,0.7)">
-A limited number of Concierge seats remain. Confirm immediately at the tier that suits you — guaranteed entry, secure Stripe checkout.
+<tr><td align="center" style="padding:32px 28px">
+<p style="margin:0 0 8px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Concierge Access</p>
+<p style="margin:0 0 18px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:22px;line-height:1.4;color:#F1ECDF">A fixed seat, certainty</p>
+<p style="margin:0 0 24px;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.65;color:rgba(241,236,223,0.72)">
+If you'd prefer certainty over waiting, a small number of Concierge seats remain — a fixed spot, no reshuffling, no late surprises.
 </p>
-
-<!-- TIER 1 -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">
-<tr><td align="center" style="padding:14px 16px;background-color:#231D17;border:1px solid rgba(184,150,90,0.25)">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-<td align="left" style="font-family:'EB Garamond',Georgia,serif">
-<div style="font-size:16px;color:#F1ECDF;font-weight:500;line-height:1.3">€1,000</div>
-<div style="font-size:12px;color:rgba(241,236,223,0.55);margin-top:2px">Standard Concierge</div>
-</td>
-<td align="right">
-<a href="${escapeHtml(payUrl1k)}" style="display:inline-block;padding:10px 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#F1ECDF;text-decoration:none;letter-spacing:3px;text-transform:uppercase;font-weight:500;border:1px solid rgba(241,236,223,0.4)">Choose</a>
-</td>
-</tr></table>
-</td></tr></table>
-
-<!-- TIER 2 (highlighted) -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px">
-<tr><td align="center" style="padding:14px 16px;background-color:#2B2218;border:1px solid rgba(184,150,90,0.6);position:relative">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-<td align="left" style="font-family:'EB Garamond',Georgia,serif">
-<div style="font-size:16px;color:#F1ECDF;font-weight:500;line-height:1.3">€4,000 <span style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#d4b884;font-weight:500;margin-left:6px">Most chosen</span></div>
-<div style="font-size:12px;color:rgba(241,236,223,0.65);margin-top:2px">Premium Concierge · priority entry, reserved seating</div>
-</td>
-<td align="right">
-<a href="${escapeHtml(payUrl4k)}" style="display:inline-block;padding:10px 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#0F0C09;text-decoration:none;letter-spacing:3px;text-transform:uppercase;font-weight:500;background-color:#B8965A">Choose</a>
-</td>
-</tr></table>
-</td></tr></table>
-
-<!-- TIER 3 -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:6px">
-<tr><td align="center" style="padding:14px 16px;background-color:#231D17;border:1px solid rgba(184,150,90,0.25)">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-<td align="left" style="font-family:'EB Garamond',Georgia,serif">
-<div style="font-size:16px;color:#F1ECDF;font-weight:500;line-height:1.3">€10,000</div>
-<div style="font-size:12px;color:rgba(241,236,223,0.55);margin-top:2px">Patron · everything plus dinner table</div>
-</td>
-<td align="right">
-<a href="${escapeHtml(payUrl10k)}" style="display:inline-block;padding:10px 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#F1ECDF;text-decoration:none;letter-spacing:3px;text-transform:uppercase;font-weight:500;border:1px solid rgba(241,236,223,0.4)">Choose</a>
-</td>
-</tr></table>
-</td></tr></table>
-
-<p style="margin:18px 0 0;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.45);line-height:1.5">
-Secure Stripe Checkout &middot; Cancel anytime before payment
+<table role="presentation" cellpadding="0" cellspacing="0" border="0">
+<tr><td bgcolor="#B8965A" style="background-color:#B8965A;border-radius:1px">
+<a href="${escapeHtml(payUrl)}" style="display:inline-block;padding:14px 36px;font-family:'EB Garamond',Georgia,serif;font-size:12px;color:#0F0C09;text-decoration:none;letter-spacing:3px;text-transform:uppercase;font-weight:500">Reserve a seat — €4,000</a>
+</td></tr>
+</table>
+<p style="margin:20px 0 0;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.45);line-height:1.5">
+One seat &middot; Secure Stripe checkout &middot; Includes the full evening curation
 </p>
 </td></tr>
 </table>

@@ -1572,13 +1572,12 @@ function showSendingState(btnEl) {
 }
 
 async function rejectSingle(recordId, btnEl) {
-  // Find guest for confirm dialog
   const guest = messagingGuests.find(g => g.id === recordId);
   const displayName = guest && guest.name ? guest.name : 'this guest';
   const currentStatus = guest ? (guest.messagingStatus || '') : '';
 
-  const message = `Reject ${displayName}?\n\nThis will:\n· Send an apology email (capacity-based wording)\n· Send an apology SMS (DE numbers only)\n· Set status to "Declined"\n\nCurrent status: ${currentStatus}\n\nThis action cannot be auto-reversed.`;
-  if (!confirm(message)) return;
+  const ok = await showRejectModal({ name: displayName, status: currentStatus });
+  if (!ok) return;
 
   if (btnEl) showSendingState(btnEl);
   try {

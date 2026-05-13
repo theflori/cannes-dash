@@ -173,3 +173,81 @@
     fitTier: fitTier
   };
 })();
+
+// ============== REJECT CONFIRMATION MODAL ==============
+// Promise-based modal for confirming destructive reject action.
+// Usage: const ok = await showRejectModal({ name, status });
+function showRejectModal({ name, status }) {
+  return new Promise((resolve) => {
+    // Build modal if not present
+    let modal = document.getElementById('rejectConfirmModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'rejectConfirmModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,12,9,0.65);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn 0.15s ease';
+    modal.innerHTML = `
+      <div style="background:#fff;width:100%;max-width:480px;border-radius:8px;box-shadow:0 24px 64px rgba(0,0,0,0.4);overflow:hidden;animation:slideUp 0.2s ease">
+        <div style="padding:24px 28px 20px;border-bottom:1px solid #eaeae0;display:flex;align-items:flex-start;gap:14px">
+          <div style="flex-shrink:0;width:38px;height:38px;border-radius:50%;background:rgba(196,84,74,0.12);display:flex;align-items:center;justify-content:center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#c4544a" stroke-width="2" style="width:20px;height:20px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div>
+            <h2 style="margin:0 0 4px;font-family:'Inter',sans-serif;font-size:17px;font-weight:600;color:#1a1814">Reject ${escapeHtmlSafe(name)}?</h2>
+            <p style="margin:0;font-size:13px;color:#6b6b66;line-height:1.5">Currently: <strong style="color:#1a1814">${escapeHtmlSafe(status || 'unknown')}</strong></p>
+          </div>
+        </div>
+
+        <div style="padding:20px 28px 8px;font-size:13px;line-height:1.6;color:#1a1814">
+          <p style="margin:0 0 12px">This action will:</p>
+          <ul style="margin:0 0 16px;padding-left:18px;color:#4a4843">
+            <li style="margin-bottom:4px">Send an <strong>apology email</strong> (capacity-based wording)</li>
+            <li style="margin-bottom:4px">Send an <strong>apology SMS</strong> (DE numbers only)</li>
+            <li>Set their status to <strong>Declined</strong></li>
+          </ul>
+          <div style="padding:10px 12px;background:rgba(196,84,74,0.08);border-left:3px solid #c4544a;font-size:12px;color:#8a3f33;line-height:1.5;margin-bottom:8px">
+            <strong>This cannot be auto-reversed.</strong> They will receive a message immediately.
+          </div>
+        </div>
+
+        <div style="padding:16px 28px 22px;display:flex;align-items:center;justify-content:flex-end;gap:8px;background:#fafaf7;border-top:1px solid #eaeae0">
+          <button id="rejectCancelBtn" style="padding:9px 18px;border:1px solid #1a1814;background:#fff;color:#1a1814;font-size:13px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">Cancel</button>
+          <button id="rejectConfirmBtn" style="padding:9px 18px;border:1px solid #c4544a;background:#c4544a;color:#fff;font-size:13px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif;font-weight:500">Yes, reject ${escapeHtmlSafe((name || '').split(' ')[0] || 'guest')}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Make sure animations exist
+    if (!document.getElementById('rejectModalKeyframes')) {
+      const style = document.createElement('style');
+      style.id = 'rejectModalKeyframes';
+      style.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}';
+      document.head.appendChild(style);
+    }
+
+    function close(result) {
+      modal.remove();
+      resolve(result);
+    }
+
+    document.getElementById('rejectCancelBtn').addEventListener('click', () => close(false));
+    document.getElementById('rejectConfirmBtn').addEventListener('click', () => close(true));
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(false); });
+
+    // Esc closes
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', onKey);
+        close(false);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+// Safe escape used by the modal — falls back if escapeHtml isn't loaded
+function escapeHtmlSafe(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
