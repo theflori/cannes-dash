@@ -1254,3 +1254,59 @@ tbody tr:hover .row-edit-btn { opacity: 0.7; }
   color: #a83a30 !important;
 }
 .send-btn.reject-btn svg { width: 10px; height: 10px; }
+
+/* A-List allowance radio cards */
+.allowance-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  border: 1px solid var(--hairline);
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  font-family: Inter, sans-serif;
+}
+.allowance-opt:hover { border-color: var(--ink); }
+.allowance-opt span {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+.allowance-opt small {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.allowance-opt.selected {
+  border-color: #b8965a;
+  background: rgba(184,150,90,0.08);
+  box-shadow: 0 0 0 1px #b8965a inset;
+}
+.allowance-opt.selected span { color: #8a6c2e; }
+
+/* A-List chip on rows */
+.alist-allowance-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: rgba(184,150,90,0.18);
+  color: #8a6c2e;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-left: 5px;
+  white-space: nowrap;
+}
+.alist-allowance-chip.open {
+  background: #c4544a;
+  color: #fff;
+}

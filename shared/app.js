@@ -251,3 +251,15 @@ function escapeHtmlSafe(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// ============== A-LIST ALLOWANCE CHIP ==============
+// Renders a small chip (+1 / +2 / +3 / OPEN) next to name for A-List guests with allowance > 0.
+function renderAllowanceChip(guest) {
+  if (!guest || !guest.plusOneAllowance) return '';
+  const val = String(guest.plusOneAllowance).toLowerCase();
+  if (val === '0' || val === '') return '';
+  if (val === 'unlimited') {
+    return '<span class="alist-allowance-chip open" title="Open invite — anyone they bring is in">OPEN</span>';
+  }
+  return '<span class="alist-allowance-chip" title="May bring up to ' + val + ' plus-one' + (val !== '1' ? 's' : '') + '">+' + escapeHtmlSafe(val) + '</span>';
+}
