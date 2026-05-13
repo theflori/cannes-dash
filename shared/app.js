@@ -263,13 +263,3 @@ function renderAllowanceChip(guest) {
   }
   return '<span class="alist-allowance-chip" title="May bring up to ' + val + ' plus-one' + (val !== '1' ? 's' : '') + '">+' + escapeHtmlSafe(val) + '</span>';
 }
-
-// ============== A-LIST DETECTION ==============
-// Returns true if guest is A-List. Checks Tags field (if used) OR Source = 'Manual A-List'.
-// This dual check makes A-List work even if the Airtable Tags field doesn't exist.
-function isAListGuest(g) {
-  if (!g) return false;
-  if (Array.isArray(g.tags) && g.tags.includes('A-List')) return true;
-  if (g.source === 'Manual A-List') return true;
-  return false;
-}
