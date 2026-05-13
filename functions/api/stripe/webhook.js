@@ -20,7 +20,8 @@ import {
 } from '../../_lib/messaging-utils.js';
 import { renderConfirmationEmail, renderConfirmationSms } from '../../_lib/templates.js';
 
-export async function onRequestPost(context) {
+import { safe } from '../../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/stripe/webhook", async (context) => {
   const { request, env } = context;
   const signature = request.headers.get('stripe-signature') || '';
   const rawBody = await request.text();
@@ -105,7 +106,7 @@ export async function onRequestPost(context) {
   else await markSendError(env, recordId, 'Paid but confirmation email failed');
 
   return jsonOk({ recordId, sessionId, emailOk });
-}
+});
 
 // ============== STRIPE WEBHOOK SIGNATURE VERIFICATION ==============
 async function verifyStripeSignature(payload, header, secret) {

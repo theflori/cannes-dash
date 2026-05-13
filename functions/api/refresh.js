@@ -3,7 +3,8 @@
 // Body: { recordIds?: string[], onlyMissing?: boolean }
 // Triggers Apify scrape for all (or selected) profiles, writes follower count + avatar URL back to Airtable
 
-export async function onRequestPost(context) {
+import { safe } from '../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/refresh", async (context) => {
   const { request, env } = context;
 
   const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME', 'APIFY_TOKEN'];
@@ -120,7 +121,7 @@ export async function onRequestPost(context) {
     updated: updatedCount,
     notFound: targets.length - updatedCount
   }), { headers: { 'Content-Type': 'application/json' } });
-}
+});
 
 async function fetchRecords(env) {
   const records = [];

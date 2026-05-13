@@ -1,8 +1,10 @@
-// deploy-marker 1778506899
+// deploy-marker 1778506899-hardened
 // GET /api/guests
 // Returns all RSVP records from Airtable as JSON
 
-export async function onRequestGet(context) {
+import { safe } from '../_lib/safe-handler.js';
+
+export const onRequestGet = safe('GET /api/guests', async (context) => {
   const { env } = context;
 
   const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME'];
@@ -30,7 +32,7 @@ export async function onRequestGet(context) {
   } catch (err) {
     return jsonError('Failed to fetch from Airtable: ' + err.message, 500);
   }
-}
+});
 
 async function fetchAllRecords(env) {
   const records = [];

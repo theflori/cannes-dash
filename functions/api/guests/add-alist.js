@@ -8,7 +8,8 @@ import { jsonError, jsonOk } from '../../_lib/messaging-utils.js';
 
 const VALID_ALLOWANCE = new Set(['0', '1', '2', '3', 'unlimited']);
 
-export async function onRequestPost(context) {
+import { safe } from '../../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/guests/add-alist", async (context) => {
   const { request, env } = context;
   if (!env.AIRTABLE_TOKEN || !env.AIRTABLE_BASE_ID || !env.AIRTABLE_TABLE_NAME) {
     return jsonError('Missing Airtable env', 500);
@@ -54,4 +55,4 @@ export async function onRequestPost(context) {
   }
 
   return jsonOk({ id: data.id, fields: data.fields });
-}
+});

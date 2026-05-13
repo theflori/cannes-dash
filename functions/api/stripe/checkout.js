@@ -11,7 +11,8 @@
 
 import { airtableGet, jsonError } from '../../_lib/messaging-utils.js';
 
-export async function onRequestGet(context) {
+import { safe } from '../../_lib/safe-handler.js';
+export const onRequestGet = safe("GET /api/stripe/checkout", async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
   const rid = url.searchParams.get('rid');
@@ -99,4 +100,4 @@ export async function onRequestGet(context) {
   }
 
   return Response.redirect(data.url, 302);
-}
+});

@@ -2,7 +2,8 @@
 // POST /api/login with { password }
 // On success, sets cp_session cookie (30 days)
 
-export async function onRequestPost(context) {
+import { safe } from '../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/login", async (context) => {
   const { request, env } = context;
 
   if (!env.DASHBOARD_PASSWORD || !env.SESSION_SECRET) {
@@ -40,7 +41,7 @@ export async function onRequestPost(context) {
       'Set-Cookie': `cp_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}`
     }
   });
-}
+});
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {

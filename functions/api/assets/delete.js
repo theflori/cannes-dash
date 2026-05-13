@@ -2,7 +2,8 @@
 // POST /api/assets/delete
 // Body: { id }  or  { key }
 
-export async function onRequestPost(context) {
+import { safe } from '../../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/assets/delete", async (context) => {
   const { request, env } = context;
 
   if (!env.ASSETS) return jsonError('R2 storage not configured', 500);
@@ -38,7 +39,7 @@ export async function onRequestPost(context) {
   } catch (err) {
     return jsonError('Delete failed: ' + err.message, 500);
   }
-}
+});
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {

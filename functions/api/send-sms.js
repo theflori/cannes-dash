@@ -20,7 +20,8 @@ const TEMPLATES = {
   reminder: (g) => `Reminder: Château Privé tonight, ${g.firstName}. Doors 16:00. Address & dress code on the website.`
 };
 
-export async function onRequestPost(context) {
+import { safe } from '../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/send-sms", async (context) => {
   const { request, env } = context;
 
   for (const k of ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME']) {
@@ -104,7 +105,7 @@ export async function onRequestPost(context) {
   } catch (err) {
     return jsonError('Twilio call failed: ' + err.message, 500);
   }
-}
+});
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {

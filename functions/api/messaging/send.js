@@ -19,7 +19,8 @@ import {
   renderWaitlistEmail, renderWaitlistSms
 } from '../../_lib/templates.js';
 
-export async function onRequestPost(context) {
+import { safe } from '../../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/messaging/send", async (context) => {
   const { request, env } = context;
 
   const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME', 'RESEND_API_KEY'];
@@ -118,4 +119,4 @@ export async function onRequestPost(context) {
   }
 
   return jsonOk(results);
-}
+});

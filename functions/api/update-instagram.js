@@ -4,7 +4,8 @@
 // Updates the Instagram field for a single Airtable record.
 // Used for inline-editing handles that Apify couldn't find.
 
-export async function onRequestPost(context) {
+import { safe } from '../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/update-instagram", async (context) => {
   const { request, env } = context;
 
   const required = ['AIRTABLE_TOKEN', 'AIRTABLE_BASE_ID', 'AIRTABLE_TABLE_NAME'];
@@ -72,7 +73,7 @@ export async function onRequestPost(context) {
   } catch (err) {
     return jsonError('Airtable update failed: ' + err.message, 500);
   }
-}
+});
 
 function normalizeHandle(raw) {
   if (!raw) return '';

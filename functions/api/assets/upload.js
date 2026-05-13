@@ -7,7 +7,8 @@
 //
 // Writes file to R2 bucket. Auth is handled by _middleware.js (cookie-based).
 
-export async function onRequestPost(context) {
+import { safe } from '../../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/assets/upload", async (context) => {
   const { request, env } = context;
 
   if (!env.ASSETS) return jsonError('R2 storage not configured. See setup docs.', 500);
@@ -73,7 +74,7 @@ export async function onRequestPost(context) {
   } catch (err) {
     return jsonError('Upload to R2 failed: ' + err.message, 500);
   }
-}
+});
 
 function jsonError(message, status) {
   return new Response(JSON.stringify({ error: message }), {

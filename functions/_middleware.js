@@ -1,15 +1,45 @@
-// deploy-marker 1778406072
+// deploy-marker 1778406072-hardened
 // Protects everything except /login and /api/login
 // If user has valid session cookie -> pass through
 // Otherwise -> redirect to /login
+//
+// HARDENED: top-level try/catch. Any unexpected error returns
+// a structured JSON 500 (for /api/*) or 302 to /login (for pages)
+// instead of a bare runtime 500.
 
 export async function onRequest(context) {
+  try {
+    return await routeRequest(context);
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    console.error('[middleware] uncaught:', msg, '\n', err && err.stack);
+    const url = new URL(context.request.url);
+    if (url.pathname.startsWith('/api/')) {
+      return new Response(
+        JSON.stringify({
+          error: 'middleware-failed',
+          message: msg.substring(0, 500)
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    return Response.redirect(new URL('/login', url).toString(), 302);
+  }
+}
+
+async function routeRequest(context) {
   const { request, next, env } = context;
   const url = new URL(request.url);
 
   // Public routes that don't need auth
   const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html', '/api/healthcheck'];
   if (publicRoutes.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))) {
+    return next();
+  }
+
+  // Stripe webhook posts from Stripe servers, not from a logged-in browser session.
+  // It MUST stay public — Stripe verifies via signature header instead of cookie.
+  if (url.pathname === '/api/stripe/webhook') {
     return next();
   }
 
@@ -33,7 +63,18 @@ export async function onRequest(context) {
     return redirectToLogin(url);
   }
 
-  // Verify session token (simple HMAC check)
+  // Guard against missing SESSION_SECRET — would otherwise crash verifySession
+  if (!env.SESSION_SECRET) {
+    console.error('[middleware] SESSION_SECRET not set');
+    if (url.pathname.startsWith('/api/')) {
+      return new Response(
+        JSON.stringify({ error: 'server-misconfigured', message: 'SESSION_SECRET missing' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    return redirectToLogin(url);
+  }
+
   const isValid = await verifySession(session, env.SESSION_SECRET);
   if (!isValid) {
     return redirectToLogin(url);

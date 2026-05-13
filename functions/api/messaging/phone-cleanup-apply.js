@@ -5,7 +5,8 @@
 
 import { airtablePatch, jsonError, jsonOk, sanitizeE164 } from '../../_lib/messaging-utils.js';
 
-export async function onRequestPost(context) {
+import { safe } from '../../_lib/safe-handler.js';
+export const onRequestPost = safe("POST /api/messaging/phone-cleanup-apply", async (context) => {
   const { request, env } = context;
 
   if (!env.AIRTABLE_TOKEN) return jsonError('Missing AIRTABLE_TOKEN', 500);
@@ -36,4 +37,4 @@ export async function onRequestPost(context) {
   }
 
   return jsonOk({ applied, failed });
-}
+});
