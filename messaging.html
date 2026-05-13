@@ -368,6 +368,16 @@
         <button class="btn" id="btnIntlSmsResend" style="border-color:var(--ink);color:var(--ink)">Send international SMS…</button>
       </div>
 
+      <!-- WAITLIST PAY-OPTION RESEND -->
+      <div class="card maintenance-section" id="waitPaySection" style="margin-top:14px;padding:20px 24px;border:1px solid var(--hairline);background:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px">
+          <div style="font-family:'Inter',sans-serif;font-size:11px;color:#8a6c2e;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Manual · Concierge Access</div>
+          <div style="font-size:14px;color:var(--ink);font-weight:500;margin-bottom:4px">Send pay option to waitlist guests</div>
+          <div style="font-size:12px;color:var(--ink-soft);line-height:1.5">Re-sends the waitlist email with the €4,000 "Skip the waitlist" Stripe CTA. Useful for guests waitlisted before Stripe was configured, or as a gentle reminder. Status stays Waitlist.</div>
+        </div>
+        <button class="btn btn-gold" id="btnWaitPayResend">Send pay option…</button>
+      </div>
+
       <!-- BROADCAST ACTIONS — to all Approved guests -->
       <div class="card broadcast-section" id="broadcastSection" style="margin-top:28px;padding:24px;border:1px solid var(--hairline);background:rgba(184,150,90,0.04)">
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap">
@@ -492,6 +502,53 @@
   </div>
 </div>
 
+<!-- WAITLIST PAY-OPTION MODAL -->
+<div class="modal-overlay" id="waitPayModal" style="display:none;position:fixed;inset:0;background:rgba(15,12,9,0.55);z-index:1000;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto">
+  <div style="background:#fff;width:100%;max-width:780px;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden">
+    <div style="padding:24px 28px;border-bottom:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h2 style="margin:0;font-family:'Inter',sans-serif;font-size:18px;font-weight:600;color:var(--ink)">Send pay option to waitlist</h2>
+        <p style="margin:4px 0 0;font-size:13px;color:var(--ink-soft)" id="waitPayModalSummary">Loading…</p>
+      </div>
+      <button class="btn btn-ghost" id="waitPayCloseBtn">Close</button>
+    </div>
+
+    <div style="padding:18px 28px;background:#fafaf7;border-bottom:1px solid var(--hairline);font-size:12px;color:var(--ink-soft);line-height:1.5">
+      Re-sends the waitlist email <strong>including the €4,000 "Skip the waitlist" Stripe CTA</strong> to the selected guests. SMS is <strong>not</strong> sent. Messaging Status stays Waitlist.
+    </div>
+
+    <!-- Select all + select none -->
+    <div style="padding:10px 28px;background:#fff;border-bottom:1px solid var(--hairline);display:flex;align-items:center;gap:10px;font-size:12px">
+      <button class="btn btn-ghost" id="waitPaySelectAllBtn" style="padding:5px 12px;font-size:11px">Select all</button>
+      <button class="btn btn-ghost" id="waitPaySelectNoneBtn" style="padding:5px 12px;font-size:11px">Select none</button>
+      <span id="waitPayFilteredCount" style="margin-left:auto;color:var(--ink-soft)"></span>
+    </div>
+
+    <div id="waitPayTableWrap" style="max-height:55vh;overflow-y:auto">
+      <table class="data-table" style="width:100%">
+        <thead style="position:sticky;top:0;background:#fafaf7;z-index:1">
+          <tr>
+            <th style="width:32px;padding:8px 12px"><input type="checkbox" id="waitPayHeadCheck" checked></th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Waitlisted since</th>
+          </tr>
+        </thead>
+        <tbody id="waitPayTableBody"></tbody>
+      </table>
+    </div>
+
+    <div style="padding:18px 28px;border-top:1px solid var(--hairline);display:flex;align-items:center;justify-content:space-between;background:#fafaf7">
+      <div style="font-size:12px;color:var(--ink-soft)" id="waitPaySelectedCount">0 selected</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" id="waitPayCancelBtn">Cancel</button>
+        <button class="btn btn-gold" id="waitPaySendBtn">Send pay option to selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const App = window.ChateauApp;
 const { showToast, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar, renderFitIndicator } = App;
@@ -533,6 +590,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindBroadcastButtons();
   bindPhoneCleanup();
   bindIntlSmsResend();
+  bindWaitPayModal();
   await loadGuests();
 });
 
@@ -933,6 +991,113 @@ function updateIntlSmsSelectedCount() {
   document.getElementById('intlSmsSelectedCount').textContent = count + ' selected';
 }
 
+// ============== WAITLIST PAY-OPTION RESEND ==============
+let waitPayCandidates = [];
+
+function bindWaitPayModal() {
+  const modal = document.getElementById('waitPayModal');
+  const openBtn = document.getElementById('btnWaitPayResend');
+  const closeBtn = document.getElementById('waitPayCloseBtn');
+  const cancelBtn = document.getElementById('waitPayCancelBtn');
+  const sendBtn = document.getElementById('waitPaySendBtn');
+  const headCheck = document.getElementById('waitPayHeadCheck');
+  const selectAllBtn = document.getElementById('waitPaySelectAllBtn');
+  const selectNoneBtn = document.getElementById('waitPaySelectNoneBtn');
+  if (!openBtn) return;
+
+  function close() { modal.style.display = 'none'; }
+  closeBtn.addEventListener('click', close);
+  cancelBtn.addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+  openBtn.addEventListener('click', () => {
+    // Pull waitlist guests from current loaded state, no extra fetch needed
+    waitPayCandidates = (messagingGuests || []).filter(g => g.messagingStatus === 'Waitlist');
+    modal.style.display = 'flex';
+    document.getElementById('waitPayModalSummary').textContent =
+      waitPayCandidates.length + ' guest' + (waitPayCandidates.length !== 1 ? 's' : '') + ' currently on the waitlist';
+    renderWaitPayPreview();
+  });
+
+  selectAllBtn.addEventListener('click', () => {
+    document.querySelectorAll('.wp-row-check').forEach(cb => cb.checked = true);
+    headCheck.checked = true;
+    updateWaitPayCount();
+  });
+  selectNoneBtn.addEventListener('click', () => {
+    document.querySelectorAll('.wp-row-check').forEach(cb => cb.checked = false);
+    headCheck.checked = false;
+    updateWaitPayCount();
+  });
+  headCheck.addEventListener('change', () => {
+    document.querySelectorAll('.wp-row-check').forEach(cb => cb.checked = headCheck.checked);
+    updateWaitPayCount();
+  });
+
+  sendBtn.addEventListener('click', async () => {
+    const ids = Array.from(document.querySelectorAll('.wp-row-check:checked')).map(cb => cb.dataset.id);
+    if (ids.length === 0) return showToast('Select at least one guest', 'error');
+    if (!confirm('Send pay-option email to ' + ids.length + ' waitlist guest' + (ids.length !== 1 ? 's' : '') + '?\n\nThe waitlist email (with €4,000 Stripe CTA) will be resent. Status stays Waitlist. SMS is not sent.')) return;
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/messaging/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: ids, emailOnly: true, payReminder: true })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+      const parts = [];
+      if (data.emailSent > 0) parts.push(data.emailSent + ' email');
+      if (data.failed && data.failed.length > 0) parts.push(data.failed.length + ' failed');
+      if (data.skipped && data.skipped.length > 0) parts.push(data.skipped.length + ' skipped');
+      showToast(parts.join(' · ') || 'Done', data.failed && data.failed.length > 0 ? 'error' : 'success');
+      close();
+      await loadGuests();
+    } catch (err) {
+      showToast('Send failed: ' + err.message, 'error');
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'Send pay option to selected';
+    }
+  });
+}
+
+function renderWaitPayPreview() {
+  const tbody = document.getElementById('waitPayTableBody');
+  if (waitPayCandidates.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--ink-soft)">No guests on waitlist.</td></tr>';
+    document.getElementById('waitPaySendBtn').disabled = true;
+    document.getElementById('waitPayFilteredCount').textContent = '';
+    return;
+  }
+  document.getElementById('waitPayFilteredCount').textContent = waitPayCandidates.length + ' total';
+  tbody.innerHTML = waitPayCandidates.map(g => {
+    const since = g.createdTime ? formatDate(g.createdTime) : '—';
+    return '<tr>' +
+      '<td style="padding:10px 12px"><input type="checkbox" class="wp-row-check" data-id="' + g.id + '" checked></td>' +
+      '<td style="padding:10px 8px"><div style="font-weight:500;color:var(--ink);font-size:13px">' + escapeHtml(g.name || '—') + '</div>' +
+      (g.instagram ? '<div style="font-size:11px;color:#8a6c2e">@' + escapeHtml(g.instagram) + '</div>' : '') + '</td>' +
+      '<td style="padding:10px 8px;font-size:12px;color:var(--ink)">' + escapeHtml(g.email || '—') + '</td>' +
+      '<td style="padding:10px 8px;font-family:JetBrains Mono,Menlo,monospace;font-size:12px;color:var(--ink-soft)">' + escapeHtml(g.phone || '—') + '</td>' +
+      '<td style="padding:10px 8px;font-size:12px;color:var(--ink-faint)">' + escapeHtml(since) + '</td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('waitPaySendBtn').disabled = false;
+  document.querySelectorAll('.wp-row-check').forEach(cb => {
+    cb.addEventListener('change', updateWaitPayCount);
+  });
+  updateWaitPayCount();
+}
+
+function updateWaitPayCount() {
+  const count = document.querySelectorAll('.wp-row-check:checked').length;
+  document.getElementById('waitPaySelectedCount').textContent = count + ' selected';
+  document.getElementById('waitPaySendBtn').disabled = count === 0;
+}
+
 // ============== LOAD ==============
 async function loadGuests() {
   try {
@@ -1187,7 +1352,21 @@ function rowHtml(g) {
   //   Approved → Resend (confirm template again, no status change)
   //   Declined → disabled
   let actionBtn;
-  if (msgStatus === 'Listed' || msgStatus === 'Semi Approved') {
+  const isAListMsg = Array.isArray(g.tags) && g.tags.includes('A-List');
+  if (isAListMsg) {
+    // A-List = auto-confirmed, no outreach. Green check instead of action buttons.
+    actionBtn = `<div class="action-btn-group" style="align-items:center">
+      <span class="alist-check" title="A-List · automatically confirmed, no email/SMS sent" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:rgba(58,138,74,0.1);color:#3a8a4a;border:1px solid rgba(58,138,74,0.3);border-radius:6px;font-size:11px;font-weight:500;letter-spacing:0.04em">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px;height:11px"><polyline points="20 6 9 17 4 12"/></svg>
+        On list
+      </span>
+      ${g.hasPaid
+        ? '<button class="send-btn reject-btn" disabled title="Paid guest — cannot be rejected" style="background:transparent;color:#cbb;border:1px solid #e5e5e5;padding:5px 8px;opacity:0.5;cursor:not-allowed"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg></button>'
+        : `<button class="send-btn reject-btn" data-action="reject" data-id="${g.id}" title="Remove from list" style="background:transparent;color:#c4544a;border:1px solid rgba(196,84,74,0.4);padding:5px 8px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`}
+    </div>`;
+  } else if (msgStatus === 'Listed' || msgStatus === 'Semi Approved') {
     actionBtn = `<div class="action-btn-group">
       <button class="send-btn waitlist-btn" data-action="waitlist" data-id="${g.id}" title="Set to Waitlist + send waitlist email and SMS">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -1291,7 +1470,7 @@ function rowHtml(g) {
           <div class="name-text">
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               ${errorDot}
-              ${g.tags && g.tags.includes('A-List') ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}
+              ${g.tags && g.tags.includes('A-List') ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}${renderAllowanceChip(g)}
               ${g.hasPaid ? '<span class="paid-badge" title="Confirmed via Stripe payment — cannot be rejected" style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;background:#1f7a3c;color:#fff;border-radius:3px;font-size:9px;font-weight:600;letter-spacing:1px;text-transform:uppercase">✓ PAID</span>' : ''}
               ${g.plusOneOfName ? '<span class="plus-one-chip" title="Plus-one of ' + escapeAttr(g.plusOneOfName) + '" style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;background:rgba(184,150,90,0.12);color:#8a6c2e;border-radius:10px;font-size:10px;font-weight:500;letter-spacing:0.3px;white-space:nowrap">+1 · ' + escapeHtml(g.plusOneOfName) + '</span>' : ''}
             </div>
@@ -1572,13 +1751,12 @@ function showSendingState(btnEl) {
 }
 
 async function rejectSingle(recordId, btnEl) {
-  // Find guest for confirm dialog
   const guest = messagingGuests.find(g => g.id === recordId);
   const displayName = guest && guest.name ? guest.name : 'this guest';
   const currentStatus = guest ? (guest.messagingStatus || '') : '';
 
-  const message = `Reject ${displayName}?\n\nThis will:\n· Send an apology email (capacity-based wording)\n· Send an apology SMS (DE numbers only)\n· Set status to "Declined"\n\nCurrent status: ${currentStatus}\n\nThis action cannot be auto-reversed.`;
-  if (!confirm(message)) return;
+  const ok = await showRejectModal({ name: displayName, status: currentStatus });
+  if (!ok) return;
 
   if (btnEl) showSendingState(btnEl);
   try {

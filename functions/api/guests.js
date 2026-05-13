@@ -109,6 +109,7 @@ function formatRecord(record, idToName) {
     plusOneOfName,
     plusOneCode: f['Plus One Code'] || '',
     plusOneUsed: f['Plus One Used'] === true,
+    plusOneAllowance: f['Plus One Allowance'] || '',
     hasPaid: f['Has Paid'] === true,
     paidAt: f['Paid At'] || '',
     stripeSessionId: f['Stripe Session ID'] || '',
