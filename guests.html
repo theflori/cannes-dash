@@ -422,7 +422,21 @@ function rowHtml(g) {
 
   // Invite-stage actions per row
   let inviteActions;
-  if (ms === 'Listed' || ms === 'Semi Approved') {
+  const isAList = Array.isArray(g.tags) && g.tags.includes('A-List');
+  if (isAList) {
+    // A-List = auto-confirmed, no outreach. Just show a green check, plus reject if you change your mind.
+    inviteActions = `<div class="action-btn-group" style="align-items:center">
+      <span class="alist-check" title="A-List · automatically confirmed, no email/SMS sent" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:rgba(58,138,74,0.1);color:#3a8a4a;border:1px solid rgba(58,138,74,0.3);border-radius:6px;font-size:11px;font-weight:500;letter-spacing:0.04em">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px;height:11px"><polyline points="20 6 9 17 4 12"/></svg>
+        On list
+      </span>
+      ${g.hasPaid
+        ? '<button class="send-btn reject-btn" disabled title="Paid guest — cannot be rejected" style="background:transparent;color:#cbb;border:1px solid #e5e5e5;padding:5px 8px;opacity:0.5;cursor:not-allowed"><svg viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"2\\"><rect x=\\"3\\" y=\\"11\\" width=\\"18\\" height=\\"11\\" rx=\\"2\\"/><path d=\\"M7 11V7a5 5 0 0 1 10 0v4\\"/></svg></button>'
+        : `<button class="send-btn reject-btn" data-action="reject" data-id="${g.id}" title="Remove from list" style="background:transparent;color:#c4544a;border:1px solid rgba(196,84,74,0.4);padding:5px 8px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`}
+    </div>`;
+  } else if (ms === 'Listed' || ms === 'Semi Approved') {
     inviteActions = `<div class="action-btn-group">
       <button class="send-btn waitlist-btn" data-action="waitlist" data-id="${g.id}" title="Set to Waitlist + send waitlist email and SMS">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Waitlist
