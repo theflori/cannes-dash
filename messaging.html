@@ -282,6 +282,10 @@
           <option value="privacy:desc">Public first</option>
         </select>
         <button class="btn btn-ghost btn-sm" id="resetFiltersBtn">Reset</button>
+        <button class="btn btn-ghost btn-sm" id="exportCsvBtn" title="Export visible invites to CSV (respects filter pill + search)" style="margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV <span id="exportCount" style="opacity:0.6;margin-left:4px"></span>
+        </button>
       </div>
 
       <!-- Filter pills -->
@@ -511,7 +515,7 @@
 
 <script>
 const App = window.ChateauApp;
-const { showToast, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar, renderFitIndicator } = App;
+const { showToast, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar, renderFitIndicator, exportToCsv } = App;
 
 // ============== STATE ==============
 const MSG_STATUS_OPTIONS = ['Listed', 'Semi Approved', 'Waitlist', 'Approved', 'Declined'];
@@ -532,6 +536,7 @@ const MSG_DOT = {
 
 let allGuests = [];
 let messagingGuests = [];
+let lastRenderedRows = []; // tracked for CSV export
 let currentFilter = 'all';
 let searchQuery = '';
 let privacyFilter = '';
@@ -551,8 +556,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindPhoneCleanup();
   bindIntlSmsResend();
   bindTestSend();
+  bindCsvExport();
   await loadGuests();
 });
+
+function bindCsvExport() {
+  document.getElementById('exportCsvBtn').addEventListener('click', () => {
+    if (!lastRenderedRows || lastRenderedRows.length === 0) {
+      showToast('No guests match the current filters', 'error');
+      return;
+    }
+    const columns = [
+      { key: 'name', label: 'Full Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'instagram', label: 'Instagram' },
+      { key: 'igFollowers', label: 'IG Followers' },
+      { key: 'igIsPrivate', label: 'IG Private', format: v => v === true ? 'yes' : v === false ? 'no' : '' },
+      { key: 'company', label: 'Company / Industry' },
+      { key: 'referredBy', label: 'Referred By' },
+      { key: 'messagingStatus', label: 'Messaging Status', format: v => v || 'Pending' },
+      { key: 'tags', label: 'Tags' },
+      { key: 'hasPaid', label: 'Paid', format: v => v ? 'yes' : 'no' },
+      { key: 'paidAt', label: 'Paid At', format: formatDate },
+      { key: 'qrSentAt', label: 'QR Sent At', format: formatDate },
+      { key: 'checkedIn', label: 'Checked In', format: v => v ? 'yes' : 'no' },
+      { key: 'checkedInAt', label: 'Checked In At', format: formatDate },
+      { key: 'checkInCount', label: 'Scan Count' },
+      { key: 'plusOneOfName', label: 'Plus One Of' },
+      { key: 'plusOneAllowance', label: 'Plus One Allowance' },
+      { key: 'lastMessageSentAt', label: 'Last Message Sent', format: formatDate },
+      { key: 'lastSendError', label: 'Last Send Error' },
+      { key: 'createdTime', label: 'Submitted', format: formatDate }
+    ];
+    const stamp = new Date().toISOString().slice(0, 10);
+    exportToCsv(lastRenderedRows, columns, `chateau-invites-${stamp}.csv`);
+    showToast(`Exported ${lastRenderedRows.length} guest${lastRenderedRows.length !== 1 ? 's' : ''}`, 'success');
+  });
+}
 
 function bindTestSend() {
   document.querySelectorAll('[data-test-type]').forEach(btn => {
@@ -1145,6 +1186,11 @@ function render() {
   card.style.display = '';
   empty.style.display = 'none';
   tbody.innerHTML = rows.map(rowHtml).join('');
+
+  // Cache for CSV export + update count display
+  lastRenderedRows = rows;
+  const exportCount = document.getElementById('exportCount');
+  if (exportCount) exportCount.textContent = rows.length > 0 ? `(${rows.length})` : '';
 
   // Bind interactions
   tbody.querySelectorAll('input.row-check').forEach(cb => {

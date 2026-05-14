@@ -159,6 +159,43 @@
     return '<span class="fit-indicator" title="' + tip.replace(/"/g, '&quot;') + '" data-fit-tier="' + tier + '">' + dots.join('') + '</span>';
   }
 
+  // ============== CSV EXPORT ==============
+  // exportToCsv(rows, columns, filename)
+  //   rows:     array of objects (each row)
+  //   columns:  array of { key, label } — `key` indexes the row object,
+  //             `label` is the column header text in the CSV
+  //   filename: e.g. 'guests-2026-05-15.csv'
+  //
+  // Cells are CSV-escaped (RFC 4180): quotes doubled, comma/newline/quote → wrapped.
+  // Excel-friendly: prepends BOM so umlauts/emoji aren't garbled in Excel on Windows.
+  function exportToCsv(rows, columns, filename) {
+    const esc = (val) => {
+      if (val == null) return '';
+      const s = Array.isArray(val) ? val.join('; ') : String(val);
+      // Always quote — safest and handles all special chars
+      return '"' + s.replace(/"/g, '""') + '"';
+    };
+
+    const header = columns.map(c => esc(c.label)).join(',');
+    const body = rows.map(row =>
+      columns.map(c => {
+        const v = typeof c.format === 'function' ? c.format(row[c.key], row) : row[c.key];
+        return esc(v);
+      }).join(',')
+    ).join('\r\n');
+
+    const csv = '\uFEFF' + header + '\r\n' + body;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   window.ChateauApp = {
     injectSidebar: injectSidebar,
     showToast: showToast,
@@ -170,7 +207,8 @@
     computeFitScore: computeFitScore,
     renderFitIndicator: renderFitIndicator,
     fitLabel: fitLabel,
-    fitTier: fitTier
+    fitTier: fitTier,
+    exportToCsv: exportToCsv
   };
 })();
 

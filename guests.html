@@ -103,6 +103,10 @@
           <option value="privacy:desc">Public first</option>
         </select>
         <button class="btn btn-ghost btn-sm" id="resetFiltersBtn">Reset</button>
+        <button class="btn btn-ghost btn-sm" id="exportCsvBtn" title="Export visible guests to CSV (respects current filters)" style="margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export CSV <span id="exportCount" style="opacity:0.6;margin-left:4px"></span>
+        </button>
       </div>
 
       <!-- BULK BAR (hidden when nothing selected) -->
@@ -234,7 +238,7 @@
 <script src="/shared/app.js"></script>
 <script>
 const App = window.ChateauApp;
-const { showToast, authFetch, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar, renderFitIndicator } = App;
+const { showToast, authFetch, escapeHtml, escapeAttr, formatNumber, formatDate, injectSidebar, renderFitIndicator, exportToCsv } = App;
 
 // ============== STATE ==============
 const STATUS_OPTIONS = ['Pending', 'Waitlisted', 'Approved', 'Approved Ticket sent', 'Rejected'];
@@ -351,6 +355,10 @@ function render() {
   let rows = applyFilters(allGuests);
   rows = sortRows(rows);
   const tbody = document.getElementById('tbody');
+
+  // Update export count display
+  const exportCount = document.getElementById('exportCount');
+  if (exportCount) exportCount.textContent = rows.length > 0 ? `(${rows.length})` : '';
 
   if (rows.length === 0) {
     tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="glyph">—</div><div class="title">No guests match the filters</div><div class="subtitle">Try clearing the filters or search query.</div></div></td></tr>`;
@@ -667,6 +675,47 @@ function bindEvents() {
   });
   document.getElementById('reloadBtn').addEventListener('click', loadGuests);
   bindAListModal();
+
+  // CSV export — respects current filters
+  document.getElementById('exportCsvBtn').addEventListener('click', () => {
+    const rows = applyFilters(allGuests);
+    if (rows.length === 0) {
+      showToast('No guests match the current filters', 'error');
+      return;
+    }
+    const columns = [
+      { key: 'name', label: 'Full Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'instagram', label: 'Instagram' },
+      { key: 'igFollowers', label: 'IG Followers' },
+      { key: 'igIsPrivate', label: 'IG Private', format: v => v === true ? 'yes' : v === false ? 'no' : '' },
+      { key: 'company', label: 'Company / Industry' },
+      { key: 'referredBy', label: 'Referred By' },
+      { key: 'status', label: 'RSVP Status' },
+      { key: 'messagingStatus', label: 'Messaging Status', format: v => v || 'Pending' },
+      { key: 'tags', label: 'Tags' },
+      { key: 'source', label: 'Source' },
+      { key: 'hasPaid', label: 'Paid', format: v => v ? 'yes' : 'no' },
+      { key: 'paidAt', label: 'Paid At', format: formatDate },
+      { key: 'qrSentAt', label: 'QR Sent At', format: formatDate },
+      { key: 'checkedIn', label: 'Checked In', format: v => v ? 'yes' : 'no' },
+      { key: 'checkedInAt', label: 'Checked In At', format: formatDate },
+      { key: 'checkInCount', label: 'Scan Count' },
+      { key: 'plusOneOfName', label: 'Plus One Of' },
+      { key: 'plusOneAllowance', label: 'Plus One Allowance' },
+      { key: 'plusOneCode', label: 'Plus One Code' },
+      { key: 'plusOneUsed', label: 'Plus One Used', format: v => v ? 'yes' : 'no' },
+      { key: 'notes', label: 'Internal Notes' },
+      { key: 'lastMessageSentAt', label: 'Last Message Sent', format: formatDate },
+      { key: 'createdTime', label: 'Submitted', format: formatDate },
+      { key: 'lastSendError', label: 'Last Send Error' }
+    ];
+    const stamp = new Date().toISOString().slice(0, 10);
+    exportToCsv(rows, columns, `chateau-guests-${stamp}.csv`);
+    showToast(`Exported ${rows.length} guest${rows.length !== 1 ? 's' : ''}`, 'success');
+  });
+
   document.getElementById('refreshNewBtn').addEventListener('click', () => refreshScrape(true));
   document.getElementById('refreshAllBtn').addEventListener('click', () => {
     if (!confirm('Re-scrape ALL profiles? This overwrites existing follower/avatar data.')) return;
