@@ -75,6 +75,20 @@ export async function checkInGuest(env, record) {
 
   await airtablePatch(env, record.id, patch);
 
+  // Look up plus-one companion: someone with their Plus One Of -> this guest's record id
+  let plusOneCompanionName = '';
+  let plusOneCompanionStatus = '';
+  try {
+    const companion = await findPlusOneCompanion(env, record.id);
+    if (companion) {
+      plusOneCompanionName = companion.name;
+      plusOneCompanionStatus = companion.status;
+    }
+  } catch (err) {
+    console.error('plus-one lookup failed:', err.message);
+    // Non-fatal — scanner still works without it
+  }
+
   return {
     recordId: record.id,
     name: f['Full Name'] || '',
@@ -85,11 +99,49 @@ export async function checkInGuest(env, record) {
     tags: Array.isArray(f['Tags']) ? f['Tags'] : [],
     notes: f['Internal Notes'] || '',
     plusOneOfName: extractPlusOneName(f),
+    plusOneAllowance: f['Plus One Allowance'] || '',
+    plusOneUsed: f['Plus One Used'] === true,
+    plusOneCode: f['Plus One Code'] || '',
+    plusOneCompanionName,         // if THIS guest brought a +1, who is it
+    plusOneCompanionStatus,       // and what's that companion's messaging status
     previousCheckInCount: currentCount,
     newCheckInCount: currentCount + 1,
     wasAlreadyCheckedIn,
     firstCheckedInAt: f['Checked In At'] || new Date().toISOString()
   };
+}
+
+/**
+ * Find a guest whose "Plus One Of" field links to the given record id.
+ * Returns { name, status } if found, otherwise null.
+ */
+async function findPlusOneCompanion(env, recordId) {
+  // Plus One Of is a linked-record field. We use FIND() against the array of linked names —
+  // Airtable's formula syntax for linked fields treats them as comma-joined strings.
+  // Easier: just paginate up to 100 records with non-empty Plus One Of and match in JS.
+  // For a 200-guest event this is fine.
+  const url = `https://api.airtable.com/v0/${env.AIRTABLE_BASE_ID}/${env.AIRTABLE_TABLE_NAME}` +
+    `?filterByFormula=${encodeURIComponent(`NOT({Plus One Of}="")`)}` +
+    `&pageSize=100`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${env.AIRTABLE_TOKEN}` }
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+
+  for (const r of (data.records || [])) {
+    const raw = r.fields && r.fields['Plus One Of'];
+    if (!Array.isArray(raw)) continue;
+    // Could be either record IDs or names depending on field config
+    if (raw.includes(recordId)) {
+      return {
+        name: r.fields['Full Name'] || '',
+        status: r.fields['Messaging Status'] || ''
+      };
+    }
+  }
+  return null;
 }
 
 function extractPlusOneName(fields) {
