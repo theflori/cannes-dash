@@ -1,5 +1,5 @@
 // deploy-marker stripe-webhook-v1
-// POST /api/stripe/webhook
+// POST /api/payment/webhook
 // Receives Stripe events. On checkout.session.completed:
 //   1. Mark Airtable record as Has Paid=true, Paid At, Stripe Session ID
 //   2. Set Messaging Status = Approved

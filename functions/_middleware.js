@@ -13,6 +13,14 @@ export async function onRequest(context) {
     return next();
   }
 
+  // Payment routes are public:
+  // - /api/payment/webhook is called by Stripe servers (no browser session, verified by HMAC signature)
+  // - /api/payment/checkout is hit from email links (recipient may not be logged in to the dashboard)
+  // Note: directory is named "payment" not "stripe" — the latter triggers routing/filter conflicts on some networks.
+  if (url.pathname === '/api/payment/webhook' || url.pathname === '/api/payment/checkout') {
+    return next();
+  }
+
   // Allow static assets (favicon etc) without auth
   const staticAssets = ['/favicon.ico', '/robots.txt'];
   if (staticAssets.includes(url.pathname)) {

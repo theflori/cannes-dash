@@ -1,5 +1,5 @@
 // deploy-marker stripe-checkout-v1
-// GET /api/stripe/checkout?rid=recXXX
+// GET /api/payment/checkout?rid=recXXX
 // Creates a Stripe Checkout Session for the given Airtable record and redirects to Stripe.
 //
 // Required ENV:
