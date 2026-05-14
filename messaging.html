@@ -1640,23 +1640,40 @@ async function sendQrSingle(recordId, btnEl) {
 
 async function sendBulk(recordIds) {
   if (recordIds.length === 0) return;
+  const CHUNK = 20;
+  let sent = 0, emailSent = 0, smsSent = 0, skipped = 0, failed = 0, chunkErrors = 0;
   try {
-    const res = await fetch('/api/messaging/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recordIds })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-
+    for (let i = 0; i < recordIds.length; i += CHUNK) {
+      const slice = recordIds.slice(i, i + CHUNK);
+      try {
+        const res = await fetch('/api/messaging/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordIds: slice })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+        sent += data.sent || 0;
+        emailSent += data.emailSent || 0;
+        smsSent += data.smsSent || 0;
+        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
+        if (Array.isArray(data.failed)) failed += data.failed.length;
+      } catch (err) {
+        chunkErrors++;
+        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
+      }
+      if (i + CHUNK < recordIds.length) {
+        await new Promise(function(r) { setTimeout(r, 2000); });
+      }
+    }
     const parts = [];
-    if (data.sent > 0) parts.push(`${data.sent} sent`);
-    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
-    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
-    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
-    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
-
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Nothing to send', data.failed?.length > 0 ? 'error' : 'success');
+    if (sent > 0) parts.push(sent + ' sent');
+    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent > 1 ? 's' : ''));
+    if (smsSent > 0) parts.push(smsSent + ' SMS');
+    if (skipped > 0) parts.push(skipped + ' skipped');
+    if (failed > 0) parts.push(failed + ' failed');
+    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Nothing to send', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {
@@ -1673,24 +1690,42 @@ async function confirmSingle(recordId, btnEl) {
 async function confirmBulk(recordIds, opts) {
   if (recordIds.length === 0) return;
   const sendQr = opts && opts.sendQr === true;
+  const CHUNK = 20;
+  let confirmed = 0, emailSent = 0, smsSent = 0, qrEmailSent = 0, skipped = 0, failed = 0, chunkErrors = 0;
   try {
-    const res = await fetch('/api/messaging/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recordIds, sendQr })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-
+    for (let i = 0; i < recordIds.length; i += CHUNK) {
+      const slice = recordIds.slice(i, i + CHUNK);
+      try {
+        const res = await fetch('/api/messaging/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordIds: slice, sendQr: sendQr })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+        confirmed += data.confirmed || 0;
+        emailSent += data.emailSent || 0;
+        smsSent += data.smsSent || 0;
+        qrEmailSent += data.qrEmailSent || 0;
+        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
+        if (Array.isArray(data.failed)) failed += data.failed.length;
+      } catch (err) {
+        chunkErrors++;
+        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
+      }
+      if (i + CHUNK < recordIds.length) {
+        await new Promise(function(r) { setTimeout(r, 2000); });
+      }
+    }
     const parts = [];
-    if (data.confirmed > 0) parts.push(`${data.confirmed} confirmed`);
-    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
-    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
-    if (data.qrEmailSent > 0) parts.push(`${data.qrEmailSent} QR`);
-    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
-    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
-
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
+    if (confirmed > 0) parts.push(confirmed + ' confirmed');
+    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent > 1 ? 's' : ''));
+    if (smsSent > 0) parts.push(smsSent + ' SMS');
+    if (qrEmailSent > 0) parts.push(qrEmailSent + ' QR');
+    if (skipped > 0) parts.push(skipped + ' skipped');
+    if (failed > 0) parts.push(failed + ' failed');
+    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {
@@ -1706,23 +1741,40 @@ async function waitlistSingle(recordId, btnEl) {
 
 async function waitlistBulk(recordIds) {
   if (recordIds.length === 0) return;
+  const CHUNK = 20;
+  let waitlisted = 0, emailSent = 0, smsSent = 0, skipped = 0, failed = 0, chunkErrors = 0;
   try {
-    const res = await fetch('/api/messaging/waitlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recordIds })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-
+    for (let i = 0; i < recordIds.length; i += CHUNK) {
+      const slice = recordIds.slice(i, i + CHUNK);
+      try {
+        const res = await fetch('/api/messaging/waitlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordIds: slice })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+        waitlisted += data.waitlisted || 0;
+        emailSent += data.emailSent || 0;
+        smsSent += data.smsSent || 0;
+        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
+        if (Array.isArray(data.failed)) failed += data.failed.length;
+      } catch (err) {
+        chunkErrors++;
+        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
+      }
+      if (i + CHUNK < recordIds.length) {
+        await new Promise(function(r) { setTimeout(r, 2000); });
+      }
+    }
     const parts = [];
-    if (data.waitlisted > 0) parts.push(`${data.waitlisted} waitlisted`);
-    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
-    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
-    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
-    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
-
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
+    if (waitlisted > 0) parts.push(waitlisted + ' waitlisted');
+    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent > 1 ? 's' : ''));
+    if (smsSent > 0) parts.push(smsSent + ' SMS');
+    if (skipped > 0) parts.push(skipped + ' skipped');
+    if (failed > 0) parts.push(failed + ' failed');
+    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {

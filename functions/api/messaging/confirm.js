@@ -43,7 +43,7 @@ export async function onRequestPost(context) {
 
   const recordIds = Array.isArray(body.recordIds) ? body.recordIds.filter(x => typeof x === 'string') : [];
   if (recordIds.length === 0) return jsonError('Missing recordIds', 400);
-  if (recordIds.length > 50) return jsonError('Too many records (max 50)', 400);
+  if (recordIds.length > 100) return jsonError('Too many records per batch (max 100)', 400);
 
   // Default false — QR is sent via the separate "Confirm & send QR" action,
   // not bundled with the regular Confirm. Callers can opt-in by passing sendQr:true.
