@@ -113,6 +113,11 @@ function formatRecord(record, idToName) {
     hasPaid: f['Has Paid'] === true,
     paidAt: f['Paid At'] || '',
     stripeSessionId: f['Stripe Session ID'] || '',
+    qrCode: f['QR Code'] || '',
+    qrSentAt: f['QR Sent At'] || '',
+    checkedIn: f['Checked In'] === true,
+    checkedInAt: f['Checked In At'] || '',
+    checkInCount: typeof f['Check-in Count'] === 'number' ? f['Check-in Count'] : 0,
     createdTime: record.createdTime
   };
 }

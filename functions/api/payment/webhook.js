@@ -18,7 +18,13 @@ import {
   markSendError, clearSendError,
   jsonError, jsonOk
 } from '../../_lib/messaging-utils.js';
-import { renderConfirmationEmail, renderConfirmationSms } from '../../_lib/templates.js';
+import { renderConfirmationEmail, renderConfirmationSms, render24hReminderEmail } from '../../_lib/templates.js';
+import { ensureQrCode } from '../../_lib/checkin-utils.js';
+
+function buildQrImageUrl(qrCode) {
+  const payload = encodeURIComponent(qrCode);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=H&margin=10&data=${payload}`;
+}
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -104,7 +110,24 @@ export async function onRequestPost(context) {
   if (emailOk) await clearSendError(env, recordId);
   else await markSendError(env, recordId, 'Paid but confirmation email failed');
 
-  return jsonOk({ recordId, sessionId, emailOk });
+  // Also send the event-details + QR email immediately after payment.
+  // Paid guests get full info right away — no waiting for the 24h-reminder cron.
+  let qrEmailOk = false;
+  if (email) {
+    try {
+      const qrCode = await ensureQrCode(env, recordId);
+      const qrCodeImageUrl = buildQrImageUrl(qrCode);
+      const qrMail = render24hReminderEmail({ name, declineCode, qrCodeImageUrl });
+      await sendEmail(env, { to: email, subject: qrMail.subject, html: qrMail.html, text: qrMail.text });
+      qrEmailOk = true;
+      await airtablePatch(env, recordId, { 'QR Sent At': new Date().toISOString() });
+    } catch (err) {
+      console.error('[stripe webhook] QR email failed for', recordId, err.message);
+      // Non-fatal — staff can resend manually from the dashboard.
+    }
+  }
+
+  return jsonOk({ recordId, sessionId, emailOk, qrEmailOk });
 }
 
 // ============== STRIPE WEBHOOK SIGNATURE VERIFICATION ==============

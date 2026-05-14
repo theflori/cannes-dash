@@ -9,6 +9,7 @@ export async function onRequestGet(context) {
   const expectedEnvVars = [
     'SESSION_SECRET',
     'DASHBOARD_PASSWORD',
+    'STAFF_PASSWORD',
     'AIRTABLE_TOKEN',
     'AIRTABLE_BASE_ID',
     'AIRTABLE_TABLE_NAME',

@@ -71,7 +71,8 @@
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        window.location.href = '/guests';
+        // Staff lands on the scanner; admin on the dashboard
+        window.location.href = data.role === 'staff' ? '/scan' : '/guests';
       } else {
         errEl.textContent = data.error || 'Login failed';
         btn.disabled = false;

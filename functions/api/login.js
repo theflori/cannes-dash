@@ -1,6 +1,9 @@
-// deploy-marker 1778406072
+// deploy-marker login-staff-v1
 // POST /api/login with { password }
-// On success, sets cp_session cookie (30 days)
+// Accepts either DASHBOARD_PASSWORD (full admin) or STAFF_PASSWORD (scanner-only).
+// On success, sets cp_session cookie (30 days). The payload includes a `role`
+// field — checked by /api/checkin to deny admin-only access to staff sessions,
+// and by the middleware on subpath gating.
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -18,22 +21,28 @@ export async function onRequestPost(context) {
 
   const submittedPassword = (body.password || '').trim();
 
-  // Constant-time compare to mitigate timing attacks
-  if (!constantTimeEqual(submittedPassword, env.DASHBOARD_PASSWORD)) {
-    // Small delay to slow brute-force
+  // Determine role by which password matched
+  let role = null;
+  if (constantTimeEqual(submittedPassword, env.DASHBOARD_PASSWORD)) {
+    role = 'admin';
+  } else if (env.STAFF_PASSWORD && constantTimeEqual(submittedPassword, env.STAFF_PASSWORD)) {
+    role = 'staff';
+  }
+
+  if (!role) {
     await new Promise(r => setTimeout(r, 800));
     return jsonError('Invalid password', 401);
   }
 
-  // Build session token: base64(payload).hmac(payload)
   const payload = btoa(JSON.stringify({
+    role,
     iat: Date.now(),
     exp: Date.now() + 30 * 24 * 60 * 60 * 1000  // 30 days
   }));
   const signature = await hmac(payload, env.SESSION_SECRET);
   const token = `${payload}.${signature}`;
 
-  return new Response(JSON.stringify({ ok: true }), {
+  return new Response(JSON.stringify({ ok: true, role }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',

@@ -398,6 +398,21 @@
         </div>
       </div>
 
+      <!-- TEST SEND -->
+      <div class="card maintenance-section" style="margin-top:14px;padding:20px 24px;border:1px solid var(--hairline);background:#fff">
+        <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--ink-faint);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Preview · Test send</div>
+        <div style="font-size:12px;color:var(--ink-soft);line-height:1.5;margin-bottom:14px">Send a template to your own email/phone with mock data. Does NOT touch real guests in Airtable.</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <input id="testEmail" type="email" class="input" placeholder="your-email@example.com" style="flex:2;min-width:200px;padding:8px 12px;font-size:13px">
+          <input id="testPhone" type="tel" class="input" placeholder="+49… (optional, for SMS)" style="flex:1;min-width:160px;padding:8px 12px;font-size:13px">
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" data-test-type="confirmation" style="padding:8px 14px;font-size:12px">Test Confirmation</button>
+          <button class="btn btn-ghost" data-test-type="waitlist" style="padding:8px 14px;font-size:12px">Test Waitlist</button>
+          <button class="btn btn-ghost" data-test-type="reminder" style="padding:8px 14px;font-size:12px">Test Reminder + QR</button>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -533,8 +548,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindBroadcastButtons();
   bindPhoneCleanup();
   bindIntlSmsResend();
+  bindTestSend();
   await loadGuests();
 });
+
+function bindTestSend() {
+  document.querySelectorAll('[data-test-type]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const type = btn.dataset.testType;
+      const email = document.getElementById('testEmail').value.trim();
+      const phone = document.getElementById('testPhone').value.trim();
+      if (!email) { showToast('Enter your email first', 'error'); return; }
+      const orig = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      try {
+        const res = await fetch('/api/messaging/test-send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, email, phone: phone || undefined })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+        const parts = [];
+        if (data.emailSent) parts.push('email');
+        if (data.smsSent) parts.push('SMS');
+        if (data.errors?.length) parts.push(data.errors.length + ' error(s)');
+        showToast('Test ' + type + ' sent: ' + (parts.length ? parts.join(' · ') : 'nothing'), data.errors?.length ? 'error' : 'success');
+      } catch (err) {
+        showToast('Test send failed: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+      }
+    });
+  });
+}
 
 // ============== BROADCAST ACTIONS ==============
 function bindBroadcastButtons() {
@@ -1134,6 +1183,9 @@ function render() {
   tbody.querySelectorAll('[data-action="resend"]').forEach(btn => {
     btn.addEventListener('click', () => sendSingle(btn.dataset.id, btn));  // resend = same template, no status change
   });
+  tbody.querySelectorAll('[data-action="sendqr"]').forEach(btn => {
+    btn.addEventListener('click', () => sendQrSingle(btn.dataset.id, btn));
+  });
   tbody.querySelectorAll('[data-action="reject"]').forEach(btn => {
     btn.addEventListener('click', () => rejectSingle(btn.dataset.id, btn));
   });
@@ -1211,10 +1263,18 @@ function rowHtml(g) {
       </button>
     </div>`;
   } else if (msgStatus === 'Approved') {
+    const qrBtnLabel = g.qrSentAt ? 'Resend QR' : 'Send QR';
+    const qrBtnTitle = g.qrSentAt
+      ? 'Re-send event details + QR code email (already sent ' + (g.qrSentAt ? new Date(g.qrSentAt).toLocaleDateString() : '') + ')'
+      : 'Send event details + QR code email to this guest';
     actionBtn = `<div class="action-btn-group">
       <button class="send-btn" data-action="resend" data-id="${g.id}" title="Re-send confirmation email and SMS">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
         Resend
+      </button>
+      <button class="send-btn" data-action="sendqr" data-id="${g.id}" title="${escapeAttr(qrBtnTitle)}" style="background:rgba(184,150,90,0.12);color:#8a6c2e;border:1px solid rgba(184,150,90,0.35)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14h1v1h-1zM14 20h1v1h-1zM20 20h1v1h-1z"/></svg>
+        ${qrBtnLabel}
       </button>
       <button class="send-btn reject-btn" data-action="reject" data-id="${g.id}" title="Reject this guest — sends an apology email/SMS and marks as Declined" style="background:transparent;color:#c4544a;border:1px solid rgba(196,84,74,0.4);padding:5px 8px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1300,6 +1360,8 @@ function rowHtml(g) {
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               ${errorDot}
               ${isAListGuest(g) ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}${renderAllowanceChip(g)}
+              ${g.qrSentAt ? '<span title="QR + event details sent" style="display:inline-flex;align-items:center;padding:1px 6px;background:rgba(31,122,60,0.12);color:#1f7a3c;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:0.3px">QR ✓</span>' : ''}
+              ${g.checkedIn ? '<span title="Checked in (' + g.checkInCount + ' scan' + (g.checkInCount !== 1 ? 's' : '') + ')" style="display:inline-flex;align-items:center;padding:1px 6px;background:#1f7a3c;color:#fff;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:0.3px">IN</span>' : ''}
               ${g.plusOneOfName ? '<span class="plus-one-chip" title="Plus-one of ' + escapeAttr(g.plusOneOfName) + '" style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;background:rgba(184,150,90,0.12);color:#8a6c2e;border-radius:10px;font-size:10px;font-weight:500;letter-spacing:0.3px;white-space:nowrap">+1 · ' + escapeHtml(g.plusOneOfName) + '</span>' : ''}
             </div>
             ${emailStyled}
@@ -1482,6 +1544,29 @@ async function sendSingle(recordId, btnEl) {
   if (btnEl) showSendingState(btnEl);
   await sendBulk([recordId]);
 }
+
+async function sendQrSingle(recordId, btnEl) {
+  if (btnEl) showSendingState(btnEl);
+  try {
+    const res = await fetch('/api/messaging/send-qr-to-guest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    const parts = [];
+    if (data.emailSent) parts.push('email sent');
+    if (data.smsSent) parts.push('SMS sent');
+    if (data.errors && data.errors.length) parts.push(data.errors.length + ' error(s)');
+    showToast(parts.length ? 'QR ' + parts.join(' · ') : 'Nothing sent', data.errors?.length ? 'error' : 'success');
+    await loadGuests();
+  } catch (err) {
+    showToast('QR send failed: ' + err.message, 'error');
+    await loadGuests();
+  }
+}
+
 async function sendBulk(recordIds) {
   if (recordIds.length === 0) return;
   try {
