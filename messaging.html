@@ -1919,10 +1919,12 @@ function bindBulkBar() {
   document.getElementById('bulkStatus').addEventListener('change', async e => {
     const value = e.target.value;
     if (e.target.selectedIndex === 0) return; // placeholder
-    if (selectedIds.size === 0) return;
     e.target.selectedIndex = 0;
 
-    const ids = Array.from(selectedIds);
+    const visibleIds = new Set(lastRenderedRows.map(g => g.id));
+    const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
+    if (ids.length === 0) return;
+
     let newStatus;
     if (value === '__remove__') {
       if (!confirm(`Remove ${ids.length} guest${ids.length>1?'s':''} from invites?`)) return;
@@ -1933,33 +1935,44 @@ function bindBulkBar() {
     await setStatus(ids, newStatus);
   });
   document.getElementById('bulkSendOnly').addEventListener('click', async () => {
-    const ids = Array.from(selectedIds);
+    const visibleIds = new Set(lastRenderedRows.map(g => g.id));
+    const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
     if (ids.length === 0) return;
-    if (!confirm(`Resend messages to ${ids.length} guest${ids.length>1?'s':''} based on their current status?\n\n• Approved → Confirmation email + SMS\n• Waitlist → Waitlist email + SMS\n• Other statuses → skipped`)) return;
+    // Modal in sendBulk handles confirmation
     await sendBulk(ids);
   });
   document.getElementById('bulkWaitlist').addEventListener('click', async () => {
-    const ids = Array.from(selectedIds);
+    const visibleIds = new Set(lastRenderedRows.map(g => g.id));
+    const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
     if (ids.length === 0) return;
-    if (!confirm(`Set ${ids.length} guest${ids.length>1?'s':''} to Waitlist? Waitlist email + SMS will be sent.`)) return;
+    // Modal in waitlistBulk handles confirmation + Approved-guest skipping
     await waitlistBulk(ids);
   });
   document.getElementById('bulkConfirm').addEventListener('click', async () => {
-    const ids = Array.from(selectedIds);
+    const visibleIds = new Set(lastRenderedRows.map(g => g.id));
+    const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
     if (ids.length === 0) return;
-    if (!confirm(`Confirm ${ids.length} guest${ids.length>1?'s':''}?\n\nStatus → Approved\nSends: confirmation email + SMS\n\n(QR access mail is NOT sent — use "Confirm & send QR" for that.)`)) return;
+    // Modal in confirmBulk handles confirmation
     await confirmBulk(ids, { sendQr: false });
   });
   document.getElementById('bulkConfirmQr').addEventListener('click', async () => {
-    const ids = Array.from(selectedIds);
+    const visibleIds = new Set(lastRenderedRows.map(g => g.id));
+    const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
     if (ids.length === 0) return;
-    if (!confirm(`Confirm + send QR to ${ids.length} guest${ids.length>1?'s':''}?\n\nStatus → Approved\nSends: confirmation email + SMS + QR access email`)) return;
+    // Modal in confirmBulk handles confirmation
     await confirmBulk(ids, { sendQr: true });
   });
 }
 function updateBulkBar() {
   const bar = document.getElementById('bulkBar');
-  const count = selectedIds.size;
+  // Only count guests that are BOTH selected AND in lastRenderedRows (visible
+  // under current filters). Stale selections from a prior filter state get
+  // ignored so the count never lies.
+  const visibleIds = new Set((lastRenderedRows || []).map(g => g.id));
+  let count = 0;
+  for (const id of selectedIds) {
+    if (visibleIds.has(id)) count++;
+  }
   if (count > 0) {
     bar.classList.remove('hidden');
     document.getElementById('bulkCount').textContent = `${count} selected`;

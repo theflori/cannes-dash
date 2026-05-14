@@ -602,7 +602,14 @@ function toggleRowSelection(id) {
 
 function updateBulkBar() {
   const bar = document.getElementById('bulkBar');
-  const count = selectedIds.size;
+  // Only count guests that are BOTH selected AND visible under current filters.
+  // Otherwise stale selections from a prior filter state inflate the count
+  // and (worse) sneak into bulk sends.
+  const visibleIds = new Set(applyFilters(allGuests).map(g => g.id));
+  let count = 0;
+  for (const id of selectedIds) {
+    if (visibleIds.has(id)) count++;
+  }
   if (count === 0) { bar.classList.add('hidden'); return; }
   bar.classList.remove('hidden');
   document.getElementById('bulkCount').textContent = `${count} selected`;
@@ -753,7 +760,8 @@ function bindEvents() {
 }
 
 async function bulkListForMessaging() {
-  const ids = Array.from(selectedIds);
+  const visibleIds = new Set(applyFilters(allGuests).map(g => g.id));
+  const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
   if (ids.length === 0) return;
   const btn = document.getElementById('bulkListMessaging');
 
@@ -789,7 +797,8 @@ async function bulkListForMessaging() {
 }
 
 async function bulkConfirmAndSend() {
-  const ids = Array.from(selectedIds);
+  const visibleIds = new Set(applyFilters(allGuests).map(g => g.id));
+  const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
   if (ids.length === 0) return;
 
   const ok = await runBulkSendModal({
@@ -826,7 +835,11 @@ async function bulkConfirmAndSend() {
 }
 
 async function bulkWaitlistAndSend() {
-  let ids = Array.from(selectedIds);
+  // Only act on guests that are BOTH selected AND currently visible (matching
+  // active filters). This prevents "ghost" selections from a previous filter
+  // state leaking into a batch send.
+  const visibleIds = new Set(applyFilters(allGuests).map(g => g.id));
+  let ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
   if (ids.length === 0) return;
 
   // SAFETY: split selection into safe (Pending/Listed/Semi/Waitlist) and
@@ -896,7 +909,8 @@ async function bulkWaitlistAndSend() {
 }
 
 async function bulkConfirmAndSendQr() {
-  const ids = Array.from(selectedIds);
+  const visibleIds = new Set(applyFilters(allGuests).map(g => g.id));
+  const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
   if (ids.length === 0) return;
 
   const ok = await runBulkSendModal({
