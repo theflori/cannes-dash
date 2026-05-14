@@ -107,82 +107,92 @@
   }
   .result-screen.show { display: flex; }
 
-  .result-valid    { background: #1f7a3c; color: #fff; }
-  .result-warning  { background: #c98b1a; color: #fff; }
-  .result-invalid  { background: #b03a30; color: #fff; }
+  /* Three result states — all instantly distinguishable for door staff */
+  .result-valid    { background: #1f7a3c; color: #fff; }       /* green = first-time entry */
+  .result-warning  { background: #b03a30; color: #fff; }       /* red = scanned before — needs ID check */
+  .result-invalid  { background: #6a1a14; color: #fff; }       /* dark red = invalid / not approved */
+
+  /* Big status icon above headline — works at 2m distance in low light */
+  .result-icon {
+    width: 120px; height: 120px;
+    margin: 0 0 20px;
+    flex-shrink: 0;
+  }
+  .result-icon svg { width: 100%; height: 100%; display: block; }
 
   .result-status-pill {
     display: inline-block;
-    padding: 8px 20px;
+    padding: 10px 24px;
     border-radius: 100px;
     background: rgba(255,255,255,0.2);
-    font-size: 14px;
-    letter-spacing: 2px;
+    font-size: 16px;
+    letter-spacing: 2.5px;
     text-transform: uppercase;
-    font-weight: 700;
-    margin-bottom: 20px;
+    font-weight: 800;
+    margin-bottom: 18px;
     align-self: flex-start;
   }
 
   .result-headline {
     font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 72px;
-    line-height: 0.95;
+    font-size: 88px;
+    line-height: 0.92;
     font-weight: 500;
     margin-bottom: 8px;
     letter-spacing: -0.5px;
   }
   .result-sub {
-    font-size: 17px;
-    opacity: 0.9;
-    margin-bottom: 32px;
-    line-height: 1.4;
+    font-size: 20px;
+    opacity: 0.92;
+    margin-bottom: 36px;
+    line-height: 1.35;
+    font-weight: 500;
   }
 
   .avatar-wrap {
-    display: flex; align-items: center; gap: 18px;
-    margin-bottom: 26px;
+    display: flex; align-items: center; gap: 22px;
+    margin-bottom: 30px;
   }
   .avatar {
-    width: 96px; height: 96px;
+    width: 120px; height: 120px;
     border-radius: 50%;
     background: rgba(255,255,255,0.15);
     overflow: hidden;
     flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 36px; font-weight: 600;
-    border: 2px solid rgba(255,255,255,0.35);
+    font-size: 44px; font-weight: 700;
+    border: 3px solid rgba(255,255,255,0.4);
   }
   .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   .guest-name {
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1.15;
-    margin-bottom: 5px;
-    letter-spacing: -0.3px;
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 6px;
+    letter-spacing: -0.4px;
   }
   .guest-ig {
-    font-size: 16px;
-    opacity: 0.88;
+    font-size: 19px;
+    opacity: 0.9;
     font-weight: 500;
   }
 
   .info-grid {
     background: rgba(255,255,255,0.14);
-    border-radius: 18px;
-    padding: 18px 20px;
-    margin-bottom: 20px;
-    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 22px 24px;
+    margin-bottom: 22px;
+    border: 1px solid rgba(255,255,255,0.22);
   }
   .info-row {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 9px 0;
-    font-size: 16px;
+    padding: 11px 0;
+    font-size: 19px;
   }
-  .info-row + .info-row { border-top: 1px solid rgba(255,255,255,0.14); }
-  .info-key { opacity: 0.75; }
-  .info-val { font-weight: 700; }
+  .info-row + .info-row { border-top: 1px solid rgba(255,255,255,0.16); }
+  .info-key { opacity: 0.78; }
+  .info-val { font-weight: 800; }
 
   .actions {
     margin-top: auto;
@@ -190,18 +200,18 @@
   }
   .btn {
     flex: 1;
-    height: 64px;
-    border-radius: 16px;
+    height: 72px;
+    border-radius: 18px;
     border: none;
-    font-size: 17px;
-    font-weight: 700;
+    font-size: 19px;
+    font-weight: 800;
     color: #fff;
     background: rgba(255,255,255,0.22);
     backdrop-filter: blur(8px);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.05s ease;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.3px;
   }
   .btn:active { transform: scale(0.97); }
   .btn-primary { background: #fff; color: #1a1a1a; }
@@ -338,6 +348,7 @@
 
 <!-- Result overlay -->
 <div class="result-screen" id="resultScreen">
+  <div class="result-icon" id="resultIcon"></div>
   <div class="result-status-pill" id="resultPill">—</div>
   <div class="result-headline" id="resultHeadline">—</div>
   <div class="result-sub" id="resultSub">—</div>
@@ -454,21 +465,29 @@
     }
   }
 
+  // SVG icons — large stroke so they read from a distance
+  const ICON_CHECK = '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><circle cx="50" cy="50" r="44"/><polyline points="30 52 44 66 70 38"/></svg>';
+  const ICON_X = '<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><circle cx="50" cy="50" r="44"/><line x1="34" y1="34" x2="66" y2="66"/><line x1="66" y1="34" x2="34" y2="66"/></svg>';
+
   function renderResult(data) {
     const result = data.result;
     resultScreen.className = 'result-screen show';
+    const resultIcon = document.getElementById('resultIcon');
     if (result === 'valid') {
       resultScreen.classList.add('result-valid');
+      resultIcon.innerHTML = ICON_CHECK;
       resultPill.textContent = 'Welcome';
       resultHeadline.textContent = 'Valid';
       resultSub.textContent = 'First check-in · entry approved';
     } else if (result === 'already_checked_in') {
       resultScreen.classList.add('result-warning');
+      resultIcon.innerHTML = ICON_X;
       resultPill.textContent = 'Already in';
       resultHeadline.textContent = 'Scanned before';
-      resultSub.textContent = 'This guest has already been checked in. Verify ID.';
+      resultSub.textContent = 'This guest has already been checked in. Verify ID before letting in again.';
     } else {
       resultScreen.classList.add('result-invalid');
+      resultIcon.innerHTML = ICON_X;
       resultPill.textContent = 'Reject';
       resultHeadline.textContent = 'Not valid';
       const r = data.reason || 'unknown';

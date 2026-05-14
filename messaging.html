@@ -344,7 +344,8 @@
           </select>
           <button class="btn" id="bulkSendOnly" title="Send messages based on each guest's current Messaging Status">Resend</button>
           <button class="btn" id="bulkWaitlist" title="Set status to Waitlist + send waitlist email and SMS" style="border-color:#D4A744;color:#D4A744">Waitlist &amp; send</button>
-          <button class="btn btn-gold" id="bulkConfirm" title="Set status to Approved + send confirmation email and SMS">Confirm &amp; send</button>
+          <button class="btn btn-gold" id="bulkConfirm" title="Set status to Approved + send confirmation email + SMS + QR access mail">Confirm &amp; send</button>
+          <button class="btn" id="bulkSendQr" title="Send QR + event details (Approved guests only)" style="border-color:#b8965a;color:#b8965a">Send QR</button>
           <button class="btn" id="bulkClear">Cancel</button>
         </div>
       </div>
@@ -1573,7 +1574,9 @@ async function sendQrSingle(recordId, btnEl) {
     const res = await fetch('/api/messaging/send-qr-to-guest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recordId })
+      // force=true: single-row send bypasses the "must be Approved" check,
+      // letting staff QR-mail anyone (e.g. before they're flipped to Approved).
+      body: JSON.stringify({ recordId, force: true })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -1636,6 +1639,7 @@ async function confirmBulk(recordIds) {
     if (data.confirmed > 0) parts.push(`${data.confirmed} confirmed`);
     if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
     if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.qrEmailSent > 0) parts.push(`${data.qrEmailSent} QR`);
     if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
     if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
 
@@ -1757,9 +1761,45 @@ function bindBulkBar() {
   document.getElementById('bulkConfirm').addEventListener('click', async () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
-    if (!confirm(`Confirm ${ids.length} guest${ids.length>1?'s':''}? Status will be set to Approved and confirmation email + SMS will be sent.`)) return;
+    if (!confirm(`Confirm ${ids.length} guest${ids.length>1?'s':''}?\n\nStatus → Approved\nSends: confirmation email + SMS + QR access email`)) return;
     await confirmBulk(ids);
   });
+  document.getElementById('bulkSendQr').addEventListener('click', async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!confirm(`Send QR + event details to ${ids.length} guest${ids.length>1?'s':''}?\n\nOnly Approved guests will receive it — non-approved are skipped automatically.\nNo status change.`)) return;
+    await sendQrBulk(ids);
+  });
+}
+
+async function sendQrBulk(recordIds) {
+  if (recordIds.length === 0) return;
+  const btn = document.getElementById('bulkSendQr');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const res = await fetch('/api/messaging/send-qr-to-guest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    const parts = [];
+    if (data.sent > 0) parts.push(`${data.sent} sent`);
+    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
+    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
+    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+    showToast(parts.length ? parts.join(' · ') : 'Nothing sent', data.failed?.length > 0 ? 'error' : 'success');
+    selectedIds.clear();
+    await loadGuests();
+  } catch (err) {
+    showToast('Send QR failed: ' + err.message, 'error');
+    await loadGuests();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
 }
 function updateBulkBar() {
   const bar = document.getElementById('bulkBar');
