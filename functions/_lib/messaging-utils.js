@@ -123,26 +123,55 @@ export async function generateUniqueCode(env, fieldName) {
 
 // ============== RESEND ==============
 
+// Resend allows 2 requests/second. To stay under the limit even when called in
+// tight loops (bulk confirm/waitlist/QR), we (a) pace consecutive calls and
+// (b) retry on 429 with exponential backoff.
+let _lastResendCallAt = 0;
+const RESEND_MIN_GAP_MS = 600; // ~1.6 req/sec, comfortably under the 2/sec cap
+
+async function _resendPace() {
+  const now = Date.now();
+  const wait = _lastResendCallAt + RESEND_MIN_GAP_MS - now;
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  _lastResendCallAt = Date.now();
+}
+
 export async function sendEmail(env, { to, subject, html, text }) {
   if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
   const from = env.RESEND_FROM || 'Château Privé <rsvp@fraimit.com>';
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ from, to, subject, html, text })
-  });
+  const maxAttempts = 4;
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await _resendPace();
 
-  if (!res.ok) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ from, to, subject, html, text })
+    });
+
+    if (res.ok) return await res.json();
+
     const errText = await res.text();
-    throw new Error(`Resend ${res.status}: ${errText.substring(0, 200)}`);
-  }
 
-  return await res.json();
+    // Retry on 429 (rate limit) or 5xx (transient). Otherwise bail immediately.
+    if (res.status === 429 || res.status >= 500) {
+      lastErr = new Error(`Resend ${res.status}: ${errText.substring(0, 200)}`);
+      if (attempt < maxAttempts) {
+        const backoff = 800 * Math.pow(2, attempt - 1); // 800, 1600, 3200ms
+        await new Promise(r => setTimeout(r, backoff));
+        continue;
+      }
+    } else {
+      throw new Error(`Resend ${res.status}: ${errText.substring(0, 200)}`);
+    }
+  }
+  throw lastErr || new Error('Resend failed after retries');
 }
 
 // ============== TWILIO ==============

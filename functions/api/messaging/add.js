@@ -20,7 +20,7 @@ export async function onRequestPost(context) {
 
   const recordIds = Array.isArray(body.recordIds) ? body.recordIds.filter(x => typeof x === 'string') : [];
   if (recordIds.length === 0) return jsonError('Missing recordIds (array)', 400);
-  if (recordIds.length > 50) return jsonError('Too many records at once (max 50)', 400);
+  if (recordIds.length > 100) return jsonError('Too many records at once (max 100)', 400);
 
   const baseUrl = `https://api.airtable.com/v0/${env.AIRTABLE_BASE_ID}/${env.AIRTABLE_TABLE_NAME}`;
   const headers = { Authorization: `Bearer ${env.AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' };
