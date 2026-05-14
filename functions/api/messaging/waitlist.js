@@ -65,7 +65,11 @@ export async function onRequestPost(context) {
 
       let emailOk = false;
       try {
-        const dashUrl = (env.DASHBOARD_PUBLIC_URL || '').replace(/\/$/, '');
+        // Accept either DASHBOARD_PUBLIC_URL or PUBLIC_SITE_URL — both should point
+        // to the deployed dashboard host. PUBLIC_SITE_URL is also used by the
+        // /api/payment/checkout route for Stripe success/cancel redirects, so it's
+        // almost certainly already set in env.
+        const dashUrl = (env.DASHBOARD_PUBLIC_URL || env.PUBLIC_SITE_URL || '').replace(/\/$/, '');
         const payUrl = (env.STRIPE_SECRET_KEY && dashUrl) ? `${dashUrl}/api/payment/checkout?rid=${encodeURIComponent(recordId)}` : '';
         const c = renderWaitlistEmail({ name, declineCode, payUrl });
         await sendEmail(env, { to: email, subject: c.subject, html: c.html, text: c.text });
