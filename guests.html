@@ -755,53 +755,36 @@ function bindEvents() {
 async function bulkListForMessaging() {
   const ids = Array.from(selectedIds);
   if (ids.length === 0) return;
-
   const btn = document.getElementById('bulkListMessaging');
-  btn.disabled = true;
-  const originalHtml = btn.innerHTML;
-  btn.innerHTML = 'Adding…';
 
-  const CHUNK = 50;
-  let added = 0, skipped = 0, chunkErrors = 0;
-
-  try {
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const slice = ids.slice(i, i + CHUNK);
-      btn.innerHTML = 'Adding ' + (i + 1) + '–' + Math.min(i + CHUNK, ids.length) + ' of ' + ids.length + '…';
-      try {
-        const res = await authFetch('/api/messaging/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordIds: slice })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        added += data.added || 0;
-        skipped += data.skipped || 0;
-      } catch (err) {
-        chunkErrors++;
-        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
-      }
-      if (i + CHUNK < ids.length) {
-        await new Promise(function(r) { setTimeout(r, 500); });
-      }
+  const ok = await runBulkSendModal({
+    title: 'Add ' + ids.length + ' guest' + (ids.length !== 1 ? 's' : '') + ' to Invites?',
+    body: '<p>These guests will be moved into the Invites tab as <strong>Listed</strong> (no email or SMS sent yet). Already-invited guests are skipped.</p>',
+    confirmLabel: 'Add ' + ids.length + ' to Invites',
+    totalCount: ids.length,
+    chunkSize: 50,
+    chunkDelayMs: 500,
+    ids: ids,
+    summaryKeys: [
+      { key: 'added',   label: 'added' }
+    ],
+    run: async function(slice) {
+      const res = await authFetch('/api/messaging/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: slice })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      // /api/messaging/add returns skipped as a number, normalize to array for modal
+      if (typeof data.skipped === 'number') data.skipped = new Array(data.skipped).fill({});
+      return data;
     }
+  });
 
-    let msg;
-    if (added > 0 && skipped > 0) msg = 'Added ' + added + ' to invites · ' + skipped + ' skipped (already in)';
-    else if (added > 0) msg = 'Added ' + added + ' to invites';
-    else if (skipped > 0) msg = 'All ' + skipped + ' already in messaging — none added';
-    else msg = 'No changes made';
-    if (chunkErrors > 0) msg += ' · ' + chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : '');
-    showToast(msg, (added > 0 && chunkErrors === 0) ? 'success' : (chunkErrors > 0 ? 'error' : ''));
-
+  if (ok) {
     selectedIds.clear();
     await loadGuests();
-  } catch (err) {
-    showToast('Failed: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalHtml;
   }
 }
 
@@ -809,62 +792,36 @@ async function bulkConfirmAndSend() {
   const ids = Array.from(selectedIds);
   if (ids.length === 0) return;
 
-  // Loud confirm — this sets status AND sends real messages
-  if (!confirm(`Confirm ${ids.length} guest${ids.length !== 1 ? 's' : ''}?\n\nSent in batches of 20. Status will be set to Approved and a confirmation email + SMS will be sent to each.\n\nProceed?`)) return;
-
-  const btn = document.getElementById('bulkConfirmSend');
-  btn.disabled = true;
-  const originalHtml = btn.innerHTML;
-  btn.innerHTML = 'Sending…';
-
-  const CHUNK = 20;
-  let confirmed = 0, emailSent = 0, smsSent = 0, qrEmailSent = 0;
-  let skipped = 0, failed = 0, chunkErrors = 0;
-
-  try {
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const slice = ids.slice(i, i + CHUNK);
-      btn.innerHTML = 'Sending ' + (i + 1) + '–' + Math.min(i + CHUNK, ids.length) + ' of ' + ids.length + '…';
-      try {
-        const res = await authFetch('/api/messaging/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordIds: slice })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        confirmed += data.confirmed || 0;
-        emailSent += data.emailSent || 0;
-        smsSent += data.smsSent || 0;
-        qrEmailSent += data.qrEmailSent || 0;
-        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
-        if (Array.isArray(data.failed)) failed += data.failed.length;
-      } catch (err) {
-        chunkErrors++;
-        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
-      }
-      if (i + CHUNK < ids.length) {
-        await new Promise(function(r) { setTimeout(r, 2000); });
-      }
+  const ok = await runBulkSendModal({
+    title: 'Confirm ' + ids.length + ' guest' + (ids.length !== 1 ? 's' : '') + '?',
+    body: '<p>Each selected guest will be set to <strong>Approved</strong> and receive:</p>'
+        + '<ul style="margin:8px 0 0;padding-left:18px;color:#4a4843"><li>Confirmation email</li><li>Confirmation SMS (if phone present)</li></ul>'
+        + '<div style="margin-top:12px;padding:10px 12px;background:rgba(184,150,90,0.10);border-left:3px solid #B8965A;font-size:12px;color:#6b5023">QR access email is <strong>not</strong> included — use "Confirm & send QR" for that.</div>',
+    confirmLabel: 'Send to ' + ids.length + ' guest' + (ids.length !== 1 ? 's' : ''),
+    totalCount: ids.length,
+    chunkSize: 20,
+    chunkDelayMs: 2000,
+    ids: ids,
+    summaryKeys: [
+      { key: 'confirmed', label: 'confirmed' },
+      { key: 'emailSent', label: 'emails sent' },
+      { key: 'smsSent',   label: 'SMS sent' }
+    ],
+    run: async function(slice) {
+      const res = await authFetch('/api/messaging/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: slice })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      return data;
     }
+  });
 
-    const parts = [];
-    if (confirmed > 0) parts.push(confirmed + ' confirmed');
-    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent !== 1 ? 's' : ''));
-    if (smsSent > 0) parts.push(smsSent + ' SMS');
-    if (qrEmailSent > 0) parts.push(qrEmailSent + ' QR');
-    if (skipped > 0) parts.push(skipped + ' skipped');
-    if (failed > 0) parts.push(failed + ' failed');
-    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
-
+  if (ok) {
     selectedIds.clear();
     await loadGuests();
-  } catch (err) {
-    showToast('Confirm failed: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalHtml;
   }
 }
 
@@ -872,59 +829,35 @@ async function bulkWaitlistAndSend() {
   const ids = Array.from(selectedIds);
   if (ids.length === 0) return;
 
-  if (!confirm(`Send Waitlist message to ${ids.length} guest${ids.length !== 1 ? 's' : ''}?\n\nStatus will be set to Waitlist and the waitlist email + SMS will be sent.\n\nProceed?`)) return;
-
-  const btn = document.getElementById('bulkWaitlistSend');
-  btn.disabled = true;
-  const originalHtml = btn.innerHTML;
-  btn.innerHTML = 'Sending…';
-
-  const CHUNK = 20;
-  let waitlisted = 0, emailSent = 0, smsSent = 0;
-  let skipped = 0, failed = 0, chunkErrors = 0;
-
-  try {
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const slice = ids.slice(i, i + CHUNK);
-      btn.innerHTML = 'Sending ' + (i + 1) + '–' + Math.min(i + CHUNK, ids.length) + ' of ' + ids.length + '…';
-      try {
-        const res = await authFetch('/api/messaging/waitlist', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordIds: slice })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        waitlisted += data.waitlisted || 0;
-        emailSent += data.emailSent || 0;
-        smsSent += data.smsSent || 0;
-        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
-        if (Array.isArray(data.failed)) failed += data.failed.length;
-      } catch (err) {
-        chunkErrors++;
-        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
-      }
-      if (i + CHUNK < ids.length) {
-        await new Promise(function(r) { setTimeout(r, 2000); });
-      }
+  const ok = await runBulkSendModal({
+    title: 'Set ' + ids.length + ' guest' + (ids.length !== 1 ? 's' : '') + ' to Waitlist?',
+    body: '<p>Each selected guest will be set to <strong>Waitlist</strong> and receive:</p>'
+        + '<ul style="margin:8px 0 0;padding-left:18px;color:#4a4843"><li>Waitlist email</li><li>Waitlist SMS (if phone present)</li></ul>',
+    confirmLabel: 'Send Waitlist to ' + ids.length,
+    totalCount: ids.length,
+    chunkSize: 20,
+    chunkDelayMs: 2000,
+    ids: ids,
+    summaryKeys: [
+      { key: 'waitlisted', label: 'waitlisted' },
+      { key: 'emailSent',  label: 'emails sent' },
+      { key: 'smsSent',    label: 'SMS sent' }
+    ],
+    run: async function(slice) {
+      const res = await authFetch('/api/messaging/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: slice })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      return data;
     }
+  });
 
-    const parts = [];
-    if (waitlisted > 0) parts.push(waitlisted + ' waitlisted');
-    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent !== 1 ? 's' : ''));
-    if (smsSent > 0) parts.push(smsSent + ' SMS');
-    if (skipped > 0) parts.push(skipped + ' skipped');
-    if (failed > 0) parts.push(failed + ' failed');
-    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
-
+  if (ok) {
     selectedIds.clear();
     await loadGuests();
-  } catch (err) {
-    showToast('Waitlist failed: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalHtml;
   }
 }
 
@@ -932,61 +865,36 @@ async function bulkConfirmAndSendQr() {
   const ids = Array.from(selectedIds);
   if (ids.length === 0) return;
 
-  if (!confirm(`Confirm + send QR to ${ids.length} guest${ids.length !== 1 ? 's' : ''}?\n\nSent in batches of 20. Status will be set to Approved.\nSends: confirmation email + SMS + QR access email.\n\nProceed?`)) return;
-
-  const btn = document.getElementById('bulkConfirmQr');
-  btn.disabled = true;
-  const originalHtml = btn.innerHTML;
-  btn.innerHTML = 'Sending…';
-
-  const CHUNK = 20;
-  let confirmed = 0, emailSent = 0, smsSent = 0, qrEmailSent = 0;
-  let skipped = 0, failed = 0, chunkErrors = 0;
-
-  try {
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const slice = ids.slice(i, i + CHUNK);
-      btn.innerHTML = 'Sending ' + (i + 1) + '–' + Math.min(i + CHUNK, ids.length) + ' of ' + ids.length + '…';
-      try {
-        const res = await authFetch('/api/messaging/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordIds: slice, sendQr: true })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        confirmed += data.confirmed || 0;
-        emailSent += data.emailSent || 0;
-        smsSent += data.smsSent || 0;
-        qrEmailSent += data.qrEmailSent || 0;
-        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
-        if (Array.isArray(data.failed)) failed += data.failed.length;
-      } catch (err) {
-        chunkErrors++;
-        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
-      }
-      if (i + CHUNK < ids.length) {
-        await new Promise(function(r) { setTimeout(r, 2000); });
-      }
+  const ok = await runBulkSendModal({
+    title: 'Confirm + send QR to ' + ids.length + ' guest' + (ids.length !== 1 ? 's' : '') + '?',
+    body: '<p>Each selected guest will be set to <strong>Approved</strong> and receive:</p>'
+        + '<ul style="margin:8px 0 0;padding-left:18px;color:#4a4843"><li>Confirmation email</li><li>Confirmation SMS (if phone present)</li><li>QR access email (with event details)</li></ul>',
+    confirmLabel: 'Send to ' + ids.length + ' guest' + (ids.length !== 1 ? 's' : ''),
+    totalCount: ids.length,
+    chunkSize: 20,
+    chunkDelayMs: 2000,
+    ids: ids,
+    summaryKeys: [
+      { key: 'confirmed',   label: 'confirmed' },
+      { key: 'emailSent',   label: 'confirmation emails' },
+      { key: 'smsSent',     label: 'SMS' },
+      { key: 'qrEmailSent', label: 'QR emails' }
+    ],
+    run: async function(slice) {
+      const res = await authFetch('/api/messaging/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: slice, sendQr: true })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      return data;
     }
+  });
 
-    const parts = [];
-    if (confirmed > 0) parts.push(confirmed + ' confirmed');
-    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent !== 1 ? 's' : ''));
-    if (smsSent > 0) parts.push(smsSent + ' SMS');
-    if (qrEmailSent > 0) parts.push(qrEmailSent + ' QR');
-    if (skipped > 0) parts.push(skipped + ' skipped');
-    if (failed > 0) parts.push(failed + ' failed');
-    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Nothing sent', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
-
+  if (ok) {
     selectedIds.clear();
     await loadGuests();
-  } catch (err) {
-    showToast('Confirm + QR failed: ' + err.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalHtml;
   }
 }
 

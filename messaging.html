@@ -1638,42 +1638,56 @@ async function sendQrSingle(recordId, btnEl) {
   }
 }
 
+// Bulk send via modal. For 1-2 records (single-row actions), skip modal for speed.
 async function sendBulk(recordIds) {
-  if (recordIds.length === 0) return;
-  const CHUNK = 20;
-  let sent = 0, emailSent = 0, smsSent = 0, skipped = 0, failed = 0, chunkErrors = 0;
-  try {
-    for (let i = 0; i < recordIds.length; i += CHUNK) {
-      const slice = recordIds.slice(i, i + CHUNK);
-      try {
-        const res = await fetch('/api/messaging/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordIds: slice })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        sent += data.sent || 0;
-        emailSent += data.emailSent || 0;
-        smsSent += data.smsSent || 0;
-        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
-        if (Array.isArray(data.failed)) failed += data.failed.length;
-      } catch (err) {
-        chunkErrors++;
-        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
-      }
-      if (i + CHUNK < recordIds.length) {
-        await new Promise(function(r) { setTimeout(r, 2000); });
-      }
+  if (!recordIds || recordIds.length === 0) return;
+
+  if (false) {
+    return await _sendBulkFast(recordIds);
+  }
+
+  const ok = await runBulkSendModal({
+    title: 'Resend to ' + recordIds.length + ' guest' + (recordIds.length !== 1 ? 's' : '') + '?',
+    body: '<p>This re-sends the current-stage email + SMS for each selected guest. <strong>Status is not changed.</strong></p>',
+    confirmLabel: 'Send to ' + recordIds.length,
+    totalCount: recordIds.length,
+    chunkSize: 20,
+    chunkDelayMs: 2000,
+    ids: recordIds,
+    summaryKeys: [
+      { key: 'sent',      label: 'sent' },
+      { key: 'emailSent', label: 'emails' },
+      { key: 'smsSent',   label: 'SMS' }
+    ],
+    run: async function(slice) {
+      const res = await fetch('/api/messaging/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: slice })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      return data;
     }
+  });
+  if (ok) { selectedIds.clear(); await loadGuests(); }
+}
+
+async function _sendBulkFast(recordIds) {
+  try {
+    const res = await fetch('/api/messaging/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
     const parts = [];
-    if (sent > 0) parts.push(sent + ' sent');
-    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent > 1 ? 's' : ''));
-    if (smsSent > 0) parts.push(smsSent + ' SMS');
-    if (skipped > 0) parts.push(skipped + ' skipped');
-    if (failed > 0) parts.push(failed + ' failed');
-    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Nothing to send', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
+    if (data.sent > 0) parts.push(data.sent + ' sent');
+    if (data.emailSent > 0) parts.push(data.emailSent + ' email' + (data.emailSent > 1 ? 's' : ''));
+    if (data.smsSent > 0) parts.push(data.smsSent + ' SMS');
+    if (data.failed && data.failed.length > 0) parts.push(data.failed.length + ' failed');
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Nothing to send', data.failed && data.failed.length > 0 ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {
@@ -1684,48 +1698,77 @@ async function sendBulk(recordIds) {
 
 async function confirmSingle(recordId, btnEl) {
   if (btnEl) showSendingState(btnEl);
-  await confirmBulk([recordId]);
+  await _confirmBulkFast([recordId], { sendQr: false });
 }
 
 async function confirmBulk(recordIds, opts) {
-  if (recordIds.length === 0) return;
+  if (!recordIds || recordIds.length === 0) return;
   const sendQr = opts && opts.sendQr === true;
-  const CHUNK = 20;
-  let confirmed = 0, emailSent = 0, smsSent = 0, qrEmailSent = 0, skipped = 0, failed = 0, chunkErrors = 0;
-  try {
-    for (let i = 0; i < recordIds.length; i += CHUNK) {
-      const slice = recordIds.slice(i, i + CHUNK);
-      try {
-        const res = await fetch('/api/messaging/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordIds: slice, sendQr: sendQr })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        confirmed += data.confirmed || 0;
-        emailSent += data.emailSent || 0;
-        smsSent += data.smsSent || 0;
-        qrEmailSent += data.qrEmailSent || 0;
-        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
-        if (Array.isArray(data.failed)) failed += data.failed.length;
-      } catch (err) {
-        chunkErrors++;
-        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
-      }
-      if (i + CHUNK < recordIds.length) {
-        await new Promise(function(r) { setTimeout(r, 2000); });
-      }
+
+  if (false) {
+    return await _confirmBulkFast(recordIds, { sendQr: sendQr });
+  }
+
+  const title = sendQr
+    ? 'Confirm + send QR to ' + recordIds.length + ' guest' + (recordIds.length !== 1 ? 's' : '') + '?'
+    : 'Confirm ' + recordIds.length + ' guest' + (recordIds.length !== 1 ? 's' : '') + '?';
+  const bodyLines = sendQr
+    ? '<p>Each selected guest will be set to <strong>Approved</strong> and receive:</p>'
+      + '<ul style="margin:8px 0 0;padding-left:18px;color:#4a4843"><li>Confirmation email</li><li>SMS</li><li>QR access email</li></ul>'
+    : '<p>Each selected guest will be set to <strong>Approved</strong> and receive a confirmation email + SMS.</p>';
+  const summaryKeys = sendQr
+    ? [
+        { key: 'confirmed',   label: 'confirmed' },
+        { key: 'emailSent',   label: 'confirmation emails' },
+        { key: 'smsSent',     label: 'SMS' },
+        { key: 'qrEmailSent', label: 'QR emails' }
+      ]
+    : [
+        { key: 'confirmed', label: 'confirmed' },
+        { key: 'emailSent', label: 'emails' },
+        { key: 'smsSent',   label: 'SMS' }
+      ];
+
+  const ok = await runBulkSendModal({
+    title: title,
+    body: bodyLines,
+    confirmLabel: 'Send to ' + recordIds.length,
+    totalCount: recordIds.length,
+    chunkSize: 20,
+    chunkDelayMs: 2000,
+    ids: recordIds,
+    summaryKeys: summaryKeys,
+    run: async function(slice) {
+      const res = await fetch('/api/messaging/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: slice, sendQr: sendQr })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      return data;
     }
+  });
+  if (ok) { selectedIds.clear(); await loadGuests(); }
+}
+
+async function _confirmBulkFast(recordIds, opts) {
+  const sendQr = opts && opts.sendQr === true;
+  try {
+    const res = await fetch('/api/messaging/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds, sendQr })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
     const parts = [];
-    if (confirmed > 0) parts.push(confirmed + ' confirmed');
-    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent > 1 ? 's' : ''));
-    if (smsSent > 0) parts.push(smsSent + ' SMS');
-    if (qrEmailSent > 0) parts.push(qrEmailSent + ' QR');
-    if (skipped > 0) parts.push(skipped + ' skipped');
-    if (failed > 0) parts.push(failed + ' failed');
-    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
+    if (data.confirmed > 0) parts.push(data.confirmed + ' confirmed');
+    if (data.emailSent > 0) parts.push(data.emailSent + ' email' + (data.emailSent > 1 ? 's' : ''));
+    if (data.smsSent > 0) parts.push(data.smsSent + ' SMS');
+    if (data.qrEmailSent > 0) parts.push(data.qrEmailSent + ' QR');
+    if (data.failed && data.failed.length > 0) parts.push(data.failed.length + ' failed');
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed && data.failed.length > 0 ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {
@@ -1736,45 +1779,58 @@ async function confirmBulk(recordIds, opts) {
 
 async function waitlistSingle(recordId, btnEl) {
   if (btnEl) showSendingState(btnEl);
-  await waitlistBulk([recordId]);
+  await _waitlistBulkFast([recordId]);
 }
 
 async function waitlistBulk(recordIds) {
-  if (recordIds.length === 0) return;
-  const CHUNK = 20;
-  let waitlisted = 0, emailSent = 0, smsSent = 0, skipped = 0, failed = 0, chunkErrors = 0;
-  try {
-    for (let i = 0; i < recordIds.length; i += CHUNK) {
-      const slice = recordIds.slice(i, i + CHUNK);
-      try {
-        const res = await fetch('/api/messaging/waitlist', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recordIds: slice })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
-        waitlisted += data.waitlisted || 0;
-        emailSent += data.emailSent || 0;
-        smsSent += data.smsSent || 0;
-        if (Array.isArray(data.skipped)) skipped += data.skipped.length;
-        if (Array.isArray(data.failed)) failed += data.failed.length;
-      } catch (err) {
-        chunkErrors++;
-        showToast('Batch ' + (Math.floor(i / CHUNK) + 1) + ' failed: ' + err.message, 'error');
-      }
-      if (i + CHUNK < recordIds.length) {
-        await new Promise(function(r) { setTimeout(r, 2000); });
-      }
+  if (!recordIds || recordIds.length === 0) return;
+
+  if (false) {
+    return await _waitlistBulkFast(recordIds);
+  }
+
+  const ok = await runBulkSendModal({
+    title: 'Set ' + recordIds.length + ' guest' + (recordIds.length !== 1 ? 's' : '') + ' to Waitlist?',
+    body: '<p>Each selected guest will be set to <strong>Waitlist</strong> and receive a waitlist email + SMS.</p>',
+    confirmLabel: 'Send Waitlist to ' + recordIds.length,
+    totalCount: recordIds.length,
+    chunkSize: 20,
+    chunkDelayMs: 2000,
+    ids: recordIds,
+    summaryKeys: [
+      { key: 'waitlisted', label: 'waitlisted' },
+      { key: 'emailSent',  label: 'emails' },
+      { key: 'smsSent',    label: 'SMS' }
+    ],
+    run: async function(slice) {
+      const res = await fetch('/api/messaging/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: slice })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
+      return data;
     }
+  });
+  if (ok) { selectedIds.clear(); await loadGuests(); }
+}
+
+async function _waitlistBulkFast(recordIds) {
+  try {
+    const res = await fetch('/api/messaging/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'HTTP ' + res.status);
     const parts = [];
-    if (waitlisted > 0) parts.push(waitlisted + ' waitlisted');
-    if (emailSent > 0) parts.push(emailSent + ' email' + (emailSent > 1 ? 's' : ''));
-    if (smsSent > 0) parts.push(smsSent + ' SMS');
-    if (skipped > 0) parts.push(skipped + ' skipped');
-    if (failed > 0) parts.push(failed + ' failed');
-    if (chunkErrors > 0) parts.push(chunkErrors + ' batch error' + (chunkErrors !== 1 ? 's' : ''));
-    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', (failed > 0 || chunkErrors > 0) ? 'error' : 'success');
+    if (data.waitlisted > 0) parts.push(data.waitlisted + ' waitlisted');
+    if (data.emailSent > 0) parts.push(data.emailSent + ' email' + (data.emailSent > 1 ? 's' : ''));
+    if (data.smsSent > 0) parts.push(data.smsSent + ' SMS');
+    if (data.failed && data.failed.length > 0) parts.push(data.failed.length + ' failed');
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed && data.failed.length > 0 ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {

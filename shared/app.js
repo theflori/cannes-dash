@@ -322,3 +322,185 @@ function importancePillStyle(val) {
   if (val === 'Tier 3')  return 'background:#555;color:#fff;border:1px solid #333';
   return 'background:transparent;color:#888;border:1px solid #ccc';
 }
+
+// ============== BULK SEND MODAL ==============
+// Promise-based modal that handles the full lifecycle of a chunked bulk send:
+// 1. CONFIRM phase: shows title + body + Cancel/Send buttons
+// 2. PROGRESS phase: shows live progress bar with "Batch N of M, sent X of Y"
+// 3. DONE phase: shows summary stats + Close button
+//
+// Usage:
+//   const ok = await runBulkSendModal({
+//     title: 'Confirm 25 guests?',
+//     body: '<p>Each guest will get a confirmation email + SMS.</p>',
+//     confirmLabel: 'Send to 25 guests',
+//     totalCount: 25,
+//     chunkSize: 20,
+//     chunkDelayMs: 2000,
+//     run: async (slice) => {
+//       const res = await authFetch('/api/messaging/confirm', {...});
+//       return await res.json(); // { confirmed, emailSent, smsSent, failed: [], skipped: [] }
+//     },
+//     ids: [...],
+//     summaryKeys: [
+//       { key: 'confirmed', label: 'confirmed' },
+//       { key: 'emailSent', label: 'emails sent' },
+//       { key: 'smsSent',   label: 'SMS sent' }
+//     ]
+//   });
+//
+// Returns true if user confirmed and run completed (with or without errors),
+// false if user cancelled. The caller is responsible for refreshing the UI.
+
+function runBulkSendModal(opts) {
+  return new Promise(function(resolve) {
+    var existing = document.getElementById('bulkSendModal');
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'bulkSendModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,12,9,0.65);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px';
+
+    modal.innerHTML =
+      '<div style="background:#fff;width:100%;max-width:520px;border-radius:8px;box-shadow:0 24px 64px rgba(0,0,0,0.4);overflow:hidden">' +
+        '<div style="padding:24px 28px 18px;border-bottom:1px solid #eaeae0">' +
+          '<h2 id="bsmTitle" style="margin:0 0 4px;font-family:Inter,sans-serif;font-size:17px;font-weight:600;color:#1a1814">' + escapeHtmlSafe(opts.title || 'Confirm') + '</h2>' +
+          '<p id="bsmSubtitle" style="margin:0;font-size:13px;color:#6b6b66;line-height:1.5"></p>' +
+        '</div>' +
+        '<div id="bsmBody" style="padding:20px 28px;font-size:13px;line-height:1.6;color:#1a1814;min-height:80px">' +
+          (opts.body || '') +
+        '</div>' +
+        '<div id="bsmFooter" style="padding:16px 28px 22px;display:flex;align-items:center;justify-content:flex-end;gap:8px;background:#fafaf7;border-top:1px solid #eaeae0">' +
+          '<button id="bsmCancelBtn" style="padding:9px 18px;border:1px solid #1a1814;background:#fff;color:#1a1814;font-size:13px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif">Cancel</button>' +
+          '<button id="bsmConfirmBtn" style="padding:9px 18px;border:1px solid #1f7a3c;background:#1f7a3c;color:#fff;font-size:13px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif;font-weight:500">' + escapeHtmlSafe(opts.confirmLabel || 'Send') + '</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+
+    var bodyEl     = document.getElementById('bsmBody');
+    var subtitleEl = document.getElementById('bsmSubtitle');
+    var footerEl   = document.getElementById('bsmFooter');
+    var cancelBtn  = document.getElementById('bsmCancelBtn');
+    var confirmBtn = document.getElementById('bsmConfirmBtn');
+
+    function close(result) {
+      modal.remove();
+      resolve(result);
+    }
+
+    cancelBtn.addEventListener('click', function() { close(false); });
+
+    // Allow background-click / Esc only during confirm phase
+    var allowOutsideClose = true;
+    modal.addEventListener('click', function(e) {
+      if (allowOutsideClose && e.target === modal) close(false);
+    });
+    function onKey(e) {
+      if (e.key === 'Escape' && allowOutsideClose) {
+        document.removeEventListener('keydown', onKey);
+        close(false);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+
+    confirmBtn.addEventListener('click', async function() {
+      // Switch into progress phase
+      allowOutsideClose = false;
+      cancelBtn.style.display = 'none';
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Sending…';
+      confirmBtn.style.opacity = '0.6';
+      confirmBtn.style.cursor = 'default';
+
+      var total      = opts.totalCount || (opts.ids ? opts.ids.length : 0);
+      var chunkSize  = opts.chunkSize || 20;
+      var chunkDelay = (typeof opts.chunkDelayMs === 'number') ? opts.chunkDelayMs : 2000;
+
+      subtitleEl.textContent = 'Sending in batches of ' + chunkSize + '…';
+
+      bodyEl.innerHTML =
+        '<div id="bsmProgressLabel" style="margin-bottom:10px;font-size:13px;color:#1a1814">Starting…</div>' +
+        '<div style="width:100%;height:8px;background:#eaeae0;border-radius:100px;overflow:hidden">' +
+          '<div id="bsmProgressBar" style="width:0%;height:100%;background:#1f7a3c;transition:width 0.3s ease"></div>' +
+        '</div>' +
+        '<div id="bsmRunningStats" style="margin-top:14px;font-size:12px;color:#6b6b66;line-height:1.6"></div>';
+
+      var progressLabel  = document.getElementById('bsmProgressLabel');
+      var progressBar    = document.getElementById('bsmProgressBar');
+      var runningStatsEl = document.getElementById('bsmRunningStats');
+
+      // Run chunks
+      var agg = {};
+      var summaryKeys = opts.summaryKeys || [];
+      for (var k = 0; k < summaryKeys.length; k++) agg[summaryKeys[k].key] = 0;
+      agg._failed = 0;
+      agg._skipped = 0;
+      agg._chunkErrors = 0;
+
+      var ids = opts.ids || [];
+
+      for (var i = 0; i < ids.length; i += chunkSize) {
+        var slice = ids.slice(i, i + chunkSize);
+        var from = i + 1;
+        var to   = Math.min(i + chunkSize, ids.length);
+        progressLabel.textContent = 'Batch ' + (Math.floor(i / chunkSize) + 1) + ' — sending ' + from + '–' + to + ' of ' + ids.length;
+
+        try {
+          var data = await opts.run(slice);
+          for (var j = 0; j < summaryKeys.length; j++) {
+            var sk = summaryKeys[j].key;
+            if (typeof data[sk] === 'number') agg[sk] += data[sk];
+          }
+          if (Array.isArray(data.failed))  agg._failed  += data.failed.length;
+          if (Array.isArray(data.skipped)) agg._skipped += data.skipped.length;
+        } catch (err) {
+          agg._chunkErrors++;
+          console.error('Batch failed:', err);
+        }
+
+        // Update progress
+        var pctDone = Math.min(100, Math.round(((i + chunkSize) / ids.length) * 100));
+        progressBar.style.width = pctDone + '%';
+
+        // Running stats line
+        var rsParts = [];
+        for (var p = 0; p < summaryKeys.length; p++) {
+          var key = summaryKeys[p].key;
+          if (agg[key] > 0) rsParts.push(agg[key] + ' ' + summaryKeys[p].label);
+        }
+        if (agg._skipped > 0)     rsParts.push(agg._skipped + ' skipped');
+        if (agg._failed > 0)      rsParts.push(agg._failed + ' failed');
+        if (agg._chunkErrors > 0) rsParts.push(agg._chunkErrors + ' batch error' + (agg._chunkErrors !== 1 ? 's' : ''));
+        runningStatsEl.textContent = rsParts.join(' · ');
+
+        if (i + chunkSize < ids.length) {
+          await new Promise(function(r) { setTimeout(r, chunkDelay); });
+        }
+      }
+
+      // Done phase
+      progressLabel.textContent = '✓ Done';
+      progressBar.style.background = '#1f7a3c';
+      progressBar.style.width = '100%';
+      subtitleEl.textContent = 'Completed ' + Math.ceil(ids.length / chunkSize) + ' batch' + (Math.ceil(ids.length / chunkSize) !== 1 ? 'es' : '');
+
+      // Replace confirm button with Close
+      footerEl.innerHTML = '<button id="bsmDoneBtn" style="padding:9px 18px;border:1px solid #1a1814;background:#1a1814;color:#fff;font-size:13px;border-radius:4px;cursor:pointer;font-family:Inter,sans-serif;font-weight:500">Close</button>';
+      document.getElementById('bsmDoneBtn').addEventListener('click', function() { close(true); });
+
+      // Build a final toast string too
+      var toastParts = [];
+      for (var t = 0; t < summaryKeys.length; t++) {
+        var tk = summaryKeys[t].key;
+        if (agg[tk] > 0) toastParts.push(agg[tk] + ' ' + summaryKeys[t].label);
+      }
+      if (agg._skipped > 0) toastParts.push(agg._skipped + ' skipped');
+      if (agg._failed > 0) toastParts.push(agg._failed + ' failed');
+      if (agg._chunkErrors > 0) toastParts.push(agg._chunkErrors + ' batch error' + (agg._chunkErrors !== 1 ? 's' : ''));
+      var hasErrors = agg._failed > 0 || agg._chunkErrors > 0;
+      if (typeof showToast === 'function') {
+        showToast(toastParts.length > 0 ? toastParts.join(' · ') : 'Done', hasErrors ? 'error' : 'success');
+      }
+    });
+  });
+}
