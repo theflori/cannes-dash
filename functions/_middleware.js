@@ -13,6 +13,13 @@ export async function onRequest(context) {
     return next();
   }
 
+  // Stripe routes are public:
+  // - /api/stripe/webhook is called by Stripe servers (no browser session, verified by signature)
+  // - /api/stripe/checkout is hit from email links (user may not be logged in to dashboard)
+  if (url.pathname === '/api/stripe/webhook' || url.pathname === '/api/stripe/checkout') {
+    return next();
+  }
+
   // Allow static assets (favicon etc) without auth
   const staticAssets = ['/favicon.ico', '/robots.txt'];
   if (staticAssets.includes(url.pathname)) {

@@ -11,8 +11,20 @@
 
 import { airtableGet, jsonError } from '../../_lib/messaging-utils.js';
 
-import { safe } from '../../_lib/safe-handler.js';
-export const onRequestGet = safe("GET /api/stripe/checkout", async (context) => {
+export async function onRequestGet(context) {
+  try {
+    return await handleCheckout(context);
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    console.error('[stripe checkout] uncaught:', msg, '\n', err && err.stack);
+    return new Response(
+      JSON.stringify({ error: 'checkout-failed', message: msg.substring(0, 500) }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+async function handleCheckout(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const rid = url.searchParams.get('rid');
@@ -100,4 +112,4 @@ export const onRequestGet = safe("GET /api/stripe/checkout", async (context) => 
   }
 
   return Response.redirect(data.url, 302);
-});
+}

@@ -30,6 +30,12 @@ export async function onRequestPost(context) {
   if (recordIds.length === 0) return jsonError('Missing recordIds', 400);
   if (recordIds.length > 50) return jsonError('Too many records (max 50)', 400);
 
+  // emailOnly=true: just re-send the waitlist email (used for "Send pay option to waitlist")
+  // - keeps existing decline code
+  // - skips SMS
+  // - skips status change (assumes already on Waitlist)
+  const emailOnly = body.emailOnly === true;
+
   const results = { waitlisted: 0, emailSent: 0, smsSent: 0, failed: [], skipped: [] };
 
   for (const recordId of recordIds) {
@@ -46,11 +52,22 @@ export async function onRequestPost(context) {
         continue;
       }
 
-      const declineCode = await generateUniqueCode(env, 'Decline Code');
+      // In emailOnly mode, skip non-waitlist guests
+      if (emailOnly && f['Messaging Status'] !== 'Waitlist') {
+        results.skipped.push({ id: recordId, reason: 'not-on-waitlist (' + (f['Messaging Status'] || 'empty') + ')' });
+        continue;
+      }
+
+      // Reuse existing decline code in emailOnly, otherwise generate
+      const declineCode = emailOnly
+        ? (f['Decline Code'] || await generateUniqueCode(env, 'Decline Code'))
+        : await generateUniqueCode(env, 'Decline Code');
 
       let emailOk = false;
       try {
-        const c = renderWaitlistEmail({ name, declineCode });
+        const dashUrl = (env.DASHBOARD_PUBLIC_URL || '').replace(/\/$/, '');
+        const payUrl = (env.STRIPE_SECRET_KEY && dashUrl) ? `${dashUrl}/api/stripe/checkout?rid=${encodeURIComponent(recordId)}` : '';
+        const c = renderWaitlistEmail({ name, declineCode, payUrl });
         await sendEmail(env, { to: email, subject: c.subject, html: c.html, text: c.text });
         emailOk = true;
         results.emailSent++;
@@ -60,7 +77,7 @@ export async function onRequestPost(context) {
       }
 
       let smsOk = false;
-      if (phone && env.TWILIO_ACCOUNT_SID) {
+      if (!emailOnly && phone && env.TWILIO_ACCOUNT_SID) {
         try {
           const smsBody = renderWaitlistSms({ name, declineCode });
           await sendSms(env, { to: phone, body: smsBody });
@@ -72,16 +89,23 @@ export async function onRequestPost(context) {
         }
       }
 
-      await airtablePatch(env, recordId, {
-        'Messaging Status': 'Waitlist',
-        'Decline Code': declineCode,
-        'Last Message Sent At': new Date().toISOString()
-      });
+      if (emailOnly) {
+        // Only update last-sent timestamp + decline code (if newly generated)
+        const patch = { 'Last Message Sent At': new Date().toISOString() };
+        if (!f['Decline Code']) patch['Decline Code'] = declineCode;
+        await airtablePatch(env, recordId, patch);
+      } else {
+        await airtablePatch(env, recordId, {
+          'Messaging Status': 'Waitlist',
+          'Decline Code': declineCode,
+          'Last Message Sent At': new Date().toISOString()
+        });
+      }
 
       // Track outcome
       if (!emailOk) {
         await markSendError(env, recordId, 'Waitlist email failed: ' + (results.failed.find(x=>x.id===recordId && x.channel==='email')?.reason || 'unknown'));
-      } else if (phone && env.TWILIO_ACCOUNT_SID && !smsOk) {
+      } else if (!emailOnly && phone && env.TWILIO_ACCOUNT_SID && !smsOk) {
         await markSendWarning(env, recordId, 'SMS failed (email ok): ' + (results.failed.find(x=>x.id===recordId && x.channel==='sms')?.reason || 'unknown'));
       } else {
         await clearSendError(env, recordId);

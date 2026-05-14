@@ -20,8 +20,22 @@ import {
 } from '../../_lib/messaging-utils.js';
 import { renderConfirmationEmail, renderConfirmationSms } from '../../_lib/templates.js';
 
-import { safe } from '../../_lib/safe-handler.js';
-export const onRequestPost = safe("POST /api/stripe/webhook", async (context) => {
+export async function onRequestPost(context) {
+  try {
+    return await handleWebhook(context);
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    console.error('[stripe webhook] uncaught:', msg, '\n', err && err.stack);
+    // Return 500 with JSON body so Stripe sees a structured error and we never
+    // emit a bare 500 that could mask the real cause.
+    return new Response(
+      JSON.stringify({ error: 'webhook-failed', message: msg.substring(0, 500) }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+}
+
+async function handleWebhook(context) {
   const { request, env } = context;
   const signature = request.headers.get('stripe-signature') || '';
   const rawBody = await request.text();
@@ -106,7 +120,7 @@ export const onRequestPost = safe("POST /api/stripe/webhook", async (context) =>
   else await markSendError(env, recordId, 'Paid but confirmation email failed');
 
   return jsonOk({ recordId, sessionId, emailOk });
-});
+}
 
 // ============== STRIPE WEBHOOK SIGNATURE VERIFICATION ==============
 async function verifyStripeSignature(payload, header, secret) {
