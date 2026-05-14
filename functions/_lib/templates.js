@@ -178,11 +178,10 @@ Can't attend? <a href="${escapeHtml(declineUrl)}" style="color:#d4b884;text-deco
 
 // ============== WAITLIST EMAIL ==============
 
-export function renderWaitlistEmail({ name, declineCode, payUrl }) {
+export function renderWaitlistEmail({ name, declineCode }) {
   const firstName = (name || '').split(' ')[0] || 'there';
   const subject = "You're on the waitlist — Château Privé · 15 May 2026";
   const declineUrl = shortUrl(declineCode);
-  const hasPay = !!payUrl;
 
   const text = `Dear ${firstName},
 
@@ -192,12 +191,7 @@ This is a single evening, in a single room, with a guest list quietly assembled 
 
 To preserve the atmosphere, the final composition is reviewed up until the day itself. In rare cases, even confirmed guests may need to be released — we mention this not to alarm, but to be honest about how much care the room demands.
 
-If you'd prefer certainty, a small number of Concierge seats remain — a fixed spot, no waiting, no reshuffling.
-
-${hasPay ? `Reserve a Concierge seat — €4,000:
-${payUrl}
-
-` : ''}If a spot opens from the waitlist, you'll hear from us first.
+If a spot opens from the waitlist, you'll hear from us first.
 
 Can no longer attend?
 ${declineUrl}
@@ -284,26 +278,6 @@ To preserve the atmosphere, the final composition is reviewed up until the day i
 <tr><td class="px-48" align="center" style="padding:32px 48px 8px">
 <p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.6;color:rgba(241,236,223,0.6);font-style:italic">If a spot opens from the waitlist, you'll hear from us first.</p>
 </td></tr>
-
-${hasPay ? `<tr><td class="px-48" align="center" style="padding:8px 48px 32px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#1F1812;border:1px solid rgba(184,150,90,0.3)">
-<tr><td align="center" style="padding:32px 28px">
-<p style="margin:0 0 8px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Concierge Access</p>
-<p style="margin:0 0 18px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:22px;line-height:1.4;color:#F1ECDF">A fixed seat, certainty</p>
-<p style="margin:0 0 24px;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.65;color:rgba(241,236,223,0.72)">
-If you'd prefer certainty over waiting, a small number of Concierge seats remain — a fixed spot, no reshuffling, no late surprises.
-</p>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0">
-<tr><td bgcolor="#B8965A" style="background-color:#B8965A;border-radius:1px">
-<a href="${escapeHtml(payUrl)}" style="display:inline-block;padding:14px 36px;font-family:'EB Garamond',Georgia,serif;font-size:12px;color:#0F0C09;text-decoration:none;letter-spacing:3px;text-transform:uppercase;font-weight:500">Reserve a seat — €4,000</a>
-</td></tr>
-</table>
-<p style="margin:20px 0 0;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.45);line-height:1.5">
-One seat &middot; Secure Stripe checkout &middot; Includes the full evening curation
-</p>
-</td></tr>
-</table>
-</td></tr>` : ''}
 
 <tr><td class="px-48" align="center" style="padding:0 48px 48px">
 <p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:12px;color:rgba(241,236,223,0.55)">
