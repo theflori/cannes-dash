@@ -84,6 +84,14 @@
         <select class="input" id="tagFilter" style="width:auto">
           <option value="">All tags</option>
         </select>
+        <select class="input" id="importanceFilter" style="width:auto" title="Filter by Importance">
+          <option value="">All importance</option>
+          <option value="VIP/Car">VIP/Car</option>
+          <option value="Tier 1">Tier 1</option>
+          <option value="Tier 2">Tier 2</option>
+          <option value="Tier 3">Tier 3</option>
+          <option value="__none__">— Unset —</option>
+        </select>
         <input type="number" class="input" id="minFollowers" placeholder="Min followers" min="0" style="width:140px">
         <select class="input" id="privacyFilter" style="width:auto" title="Filter by Instagram profile privacy">
           <option value="">All privacy</option>
@@ -149,7 +157,7 @@
               <th class="sortable col-status" data-sort="status">Status <span class="sort-arrow">▾</span></th>
               <th class="col-invite">Invite</th>
               <th class="col-tags">Referred By</th>
-              <th class="col-notes">Notes</th>
+              <th class="col-notes">Importance</th>
               <th class="sortable col-submitted" data-sort="createdTime">Date <span class="sort-arrow">▾</span></th>
               <th class="col-phone">Phone</th>
               <th class="col-invite-actions">Invite actions</th>
@@ -262,7 +270,7 @@ const STATUS_PILL = {
 let allGuests = [];
 let sortKey = 'createdTime';
 let sortDir = 'desc';
-let filters = { search: '', status: '', invite: '', tag: '', minFollowers: 0, privacy: '' };
+let filters = { search: '', status: '', invite: '', tag: '', importance: '', minFollowers: 0, privacy: '' };
 let selectedIds = new Set();
 
 // ============== INIT ==============
@@ -371,6 +379,32 @@ function render() {
   updateSortIndicators();
   updateBulkBar();
   bindRowEvents();
+}
+
+// ============== IMPORTANCE CELL ==============
+const IMPORTANCE_OPTIONS = ['VIP/Car', 'Tier 1', 'Tier 2', 'Tier 3'];
+
+function importanceCellStyle(val) {
+  // Combines pill-style background with select layout (no native arrow)
+  const base = 'appearance:none;-webkit-appearance:none;-moz-appearance:none;'
+    + 'width:100%;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;'
+    + 'letter-spacing:0.4px;text-transform:uppercase;line-height:1.2;cursor:pointer;'
+    + 'outline:none;font-family:inherit;text-align:left';
+  // Use shared/app.js global importancePillStyle for colors
+  const pill = (typeof importancePillStyle === 'function')
+    ? importancePillStyle(val)
+    : 'background:transparent;color:#888;border:1px solid #ccc';
+  return base + ';' + pill;
+}
+
+function renderImportanceCell(g) {
+  const current = g.importance || '';
+  const opts = ['<option value="">—</option>']
+    .concat(IMPORTANCE_OPTIONS.map(o =>
+      `<option value="${escapeAttr(o)}"${o === current ? ' selected' : ''}>${escapeHtml(o)}</option>`
+    ))
+    .join('');
+  return `<select class="importance-select" data-id="${g.id}" style="${importanceCellStyle(current)}">${opts}</select>`;
 }
 
 function rowHtml(g) {
@@ -515,7 +549,7 @@ function rowHtml(g) {
       <td class="col-status"><div class="status-cell">${statusPill}${msgIndicator}</div></td>
       <td class="col-invite">${inviteCell}</td>
       <td class="col-tags">${referralHtml}</td>
-      <td class="col-notes">${notesCell}</td>
+      <td class="col-notes">${renderImportanceCell(g)}</td>
       <td class="col-submitted"><span class="muted">${submitted}</span></td>
       <td class="col-phone"><span class="tabular muted">${escapeHtml(g.phone)}</span></td>
       <td class="col-invite-actions">${inviteActions}</td>
@@ -547,6 +581,13 @@ function applyFilters(list) {
       const hasTag = Array.isArray(g.tags) && g.tags.includes(filters.tag);
       const matchesSource = (filters.tag === 'A-List' && g.source === 'Manual A-List');
       if (!hasTag && !matchesSource) return false;
+    }
+    if (filters.importance) {
+      if (filters.importance === '__none__') {
+        if (g.importance) return false;
+      } else {
+        if (g.importance !== filters.importance) return false;
+      }
     }
     if (filters.minFollowers > 0) {
       if (g.igFollowers === null || g.igFollowers < filters.minFollowers) return false;
@@ -648,6 +689,10 @@ function bindEvents() {
     filters.tag = e.target.value;
     render();
   });
+  document.getElementById('importanceFilter').addEventListener('change', e => {
+    filters.importance = e.target.value;
+    render();
+  });
   document.getElementById('minFollowers').addEventListener('input', e => {
     filters.minFollowers = parseInt(e.target.value) || 0;
     render();
@@ -662,12 +707,13 @@ function bindEvents() {
     render();
   });
   document.getElementById('resetFiltersBtn').addEventListener('click', () => {
-    filters = { search: '', status: '', invite: '', tag: '', minFollowers: 0, privacy: '' };
+    filters = { search: '', status: '', invite: '', tag: '', importance: '', minFollowers: 0, privacy: '' };
     sortKey = 'createdTime'; sortDir = 'desc';
     document.getElementById('searchInput').value = '';
     document.getElementById('statusFilter').value = '';
     document.getElementById('inviteFilter').value = '';
     document.getElementById('tagFilter').value = '';
+    document.getElementById('importanceFilter').value = '';
     document.getElementById('minFollowers').value = '';
     document.getElementById('privacyFilter').value = '';
     document.getElementById('sortPreset').value = 'createdTime:desc';
@@ -706,6 +752,7 @@ function bindEvents() {
       { key: 'plusOneAllowance', label: 'Plus One Allowance' },
       { key: 'plusOneCode', label: 'Plus One Code' },
       { key: 'plusOneUsed', label: 'Plus One Used', format: v => v ? 'yes' : 'no' },
+      { key: 'importance', label: 'Importance' },
       { key: 'notes', label: 'Internal Notes' },
       { key: 'lastMessageSentAt', label: 'Last Message Sent', format: formatDate },
       { key: 'createdTime', label: 'Submitted', format: formatDate },
@@ -933,9 +980,43 @@ function bindRowEvents() {
     });
   });
 
+  // Importance inline-edit dropdown
+  document.querySelectorAll('select.importance-select').forEach(sel => {
+    sel.addEventListener('click', e => e.stopPropagation());
+    sel.addEventListener('mousedown', e => e.stopPropagation());
+    sel.addEventListener('change', async e => {
+      e.stopPropagation();
+      const id = sel.dataset.id;
+      const newVal = sel.value;
+      const prev = sel.getAttribute('data-prev') || '';
+      sel.disabled = true;
+      try {
+        const res = await authFetch('/api/update-record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recordId: id, fields: { Importance: newVal || null } })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        // Update local guest object
+        const g = allGuests.find(x => x.id === id);
+        if (g) g.importance = newVal;
+        // Refresh style on this select
+        sel.setAttribute('style', importanceCellStyle(newVal));
+        showToast(newVal ? ('Importance: ' + newVal) : 'Importance cleared', 'success');
+        // If a filter is active that this guest no longer matches, re-render
+        if (filters.importance) render();
+      } catch (err) {
+        showToast('Failed to update importance: ' + err.message, 'error');
+        sel.value = prev;
+      } finally {
+        sel.disabled = false;
+      }
+    });
+  });
+
   // Mobile: tap on card body toggles selection (skip if click landed on interactive element)
   document.getElementById('tbody').addEventListener('click', e => {
-    if (e.target.closest('button, a, input, [data-action], .checkbox')) return;
+    if (e.target.closest('button, a, input, select, [data-action], .checkbox')) return;
     if (window.innerWidth > 700) return;
     const tr = e.target.closest('tr[data-id]');
     if (!tr) return;

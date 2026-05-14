@@ -98,6 +98,7 @@ export async function checkInGuest(env, record) {
     hasPaid: f['Has Paid'] === true,
     tags: Array.isArray(f['Tags']) ? f['Tags'] : [],
     notes: f['Internal Notes'] || '',
+    importance: f['Importance'] || '',
     plusOneOfName: extractPlusOneName(f),
     plusOneAllowance: f['Plus One Allowance'] || '',
     plusOneUsed: f['Plus One Used'] === true,

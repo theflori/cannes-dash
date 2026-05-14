@@ -8,6 +8,7 @@ const ALLOWED_FIELDS = new Set([
   'Status',
   'Tags',
   'Internal Notes',
+  'Importance',
   'Instagram'  // re-included so this could replace update-instagram.js if you want
 ]);
 

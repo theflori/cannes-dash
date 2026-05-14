@@ -5,7 +5,8 @@
 
 const ALLOWED_FIELDS = new Set([
   'Status',
-  'Tags'
+  'Tags',
+  'Importance'
 ]);
 
 export async function onRequestPost(context) {
