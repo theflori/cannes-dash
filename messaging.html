@@ -287,6 +287,7 @@
       <!-- Filter pills -->
       <div class="msg-filter-bar" id="filterBar">
         <button class="msg-pill active" data-filter="all">All <span class="count" id="cntAll">—</span></button>
+        <button class="msg-pill" data-filter="pending">Pending <span class="count" id="cntPending">—</span></button>
         <button class="msg-pill" data-filter="Listed">Listed <span class="count" id="cntListed">—</span></button>
         <button class="msg-pill" data-filter="Semi Approved">Semi Approved <span class="count" id="cntSemi">—</span></button>
         <button class="msg-pill" data-filter="Waitlist">Waitlist <span class="count" id="cntWait">—</span></button>
@@ -990,7 +991,7 @@ async function loadGuests() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     allGuests = data.guests || [];
-    messagingGuests = allGuests.filter(g => g.messagingStatus);
+    messagingGuests = allGuests; // includes Pending (no messagingStatus) so they're actionable here too
     renderCounts();
     render();
   } catch (err) {
@@ -1000,13 +1001,15 @@ async function loadGuests() {
 
 // ============== RENDER ==============
 function renderCounts() {
-  const counts = { all: messagingGuests.length, Listed: 0, 'Semi Approved': 0, Waitlist: 0, Approved: 0, Declined: 0 };
+  const counts = { all: messagingGuests.length, pending: 0, Listed: 0, 'Semi Approved': 0, Waitlist: 0, Approved: 0, Declined: 0 };
   let issuesCount = 0;
   for (const g of messagingGuests) {
-    if (counts[g.messagingStatus] !== undefined) counts[g.messagingStatus]++;
+    if (!g.messagingStatus) counts.pending++;
+    else if (counts[g.messagingStatus] !== undefined) counts[g.messagingStatus]++;
     if (g.lastSendErrorLevel === 'error' || g.lastSendErrorLevel === 'warning') issuesCount++;
   }
   document.getElementById('cntAll').textContent = counts.all;
+  document.getElementById('cntPending').textContent = counts.pending;
   document.getElementById('cntListed').textContent = counts.Listed;
   document.getElementById('cntSemi').textContent = counts['Semi Approved'];
   document.getElementById('cntWait').textContent = counts.Waitlist;
@@ -1015,7 +1018,8 @@ function renderCounts() {
   document.getElementById('cntIssues').textContent = issuesCount;
 
   document.getElementById('headerMeta').textContent =
-    `${counts.all} guest${counts.all !== 1 ? 's' : ''} in invites` +
+    `${counts.all} guest${counts.all !== 1 ? 's' : ''} total` +
+    (counts.pending > 0 ? ` · ${counts.pending} pending` : '') +
     (counts.Approved > 0 ? ` · ${counts.Approved} approved` : '') +
     (issuesCount > 0 ? ` · ⚠ ${issuesCount} with issues` : '');
 
@@ -1056,6 +1060,9 @@ function render() {
   let rows;
   if (currentFilter === 'all') {
     rows = messagingGuests;
+  } else if (currentFilter === 'pending') {
+    // Guests not yet sent any invite-status message
+    rows = messagingGuests.filter(g => !g.messagingStatus);
   } else if (currentFilter === 'issues') {
     // Show anyone with a tracked error or warning on their last send
     rows = messagingGuests.filter(g => g.lastSendErrorLevel === 'error' || g.lastSendErrorLevel === 'warning');
@@ -1215,7 +1222,8 @@ function rowHtml(g) {
 
   const msgStatus = g.messagingStatus || '';
   const msgPillClass = MSG_PILL[msgStatus] || 'pill-default';
-  const msgPill = `<span class="pill ${msgPillClass} pill-clickable" data-action="status" data-id="${g.id}" title="Click to change">${escapeHtml(msgStatus)}</span>`;
+  const msgPillText = msgStatus || 'Pending';
+  const msgPill = `<span class="pill ${msgPillClass} pill-clickable" data-action="status" data-id="${g.id}" title="Click to change">${escapeHtml(msgPillText)}</span>`;
 
   const guestStatus = g.status
     ? `<span style="color:var(--ink-soft); font-size:12px">${escapeHtml(g.status)}</span>`
@@ -1290,7 +1298,21 @@ function rowHtml(g) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>`;
+  } else if (!msgStatus) {
+    // Pending — never sent any invite-status message. Offer Waitlist + Confirm so
+    // staff can promote them straight from this view (or from the bulk bar).
+    actionBtn = `<div class="action-btn-group">
+      <button class="send-btn waitlist-btn" data-action="waitlist" data-id="${g.id}" title="Set to Waitlist + send waitlist email and SMS">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Waitlist
+      </button>
+      <button class="send-btn confirm-btn" data-action="confirm" data-id="${g.id}" title="Set to Approved + send confirmation email and SMS">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Confirm
+      </button>
+    </div>`;
   } else {
+    // Declined or other terminal state
     actionBtn = `<button class="send-btn" disabled title="Already declined">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       —

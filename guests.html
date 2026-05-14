@@ -57,10 +57,10 @@
       <!-- STATS (driven by Messaging Status — single source of truth) -->
       <div class="stats-grid" id="statsGrid">
         <div class="stat-card"><span class="stat-label">Total RSVPs</span><span class="stat-value" id="stTotal">—</span></div>
-        <div class="stat-card"><span class="stat-label">Pending</span><span class="stat-value" id="stPending">—</span><span class="stat-meta">not yet handled</span></div>
-        <div class="stat-card"><span class="stat-label">Approved</span><span class="stat-value gold" id="stConfirmed">—</span><span class="stat-meta">confirmed + sent</span></div>
-        <div class="stat-card"><span class="stat-label">Waitlisted</span><span class="stat-value" id="stWaitlist">—</span></div>
-        <div class="stat-card"><span class="stat-label">Declined</span><span class="stat-value" id="stDeclined">—</span></div>
+        <div class="stat-card stat-clickable" data-filter-invite="not-listed" title="Click to filter — guests not yet in invites" style="cursor:pointer"><span class="stat-label">Pending</span><span class="stat-value" id="stPending">—</span><span class="stat-meta">not yet handled · click to filter</span></div>
+        <div class="stat-card stat-clickable" data-filter-invite="Approved" title="Click to filter — approved guests" style="cursor:pointer"><span class="stat-label">Approved</span><span class="stat-value gold" id="stConfirmed">—</span><span class="stat-meta">confirmed + sent</span></div>
+        <div class="stat-card stat-clickable" data-filter-invite="Waitlist" title="Click to filter — waitlisted guests" style="cursor:pointer"><span class="stat-label">Waitlisted</span><span class="stat-value" id="stWaitlist">—</span></div>
+        <div class="stat-card stat-clickable" data-filter-invite="Declined" title="Click to filter — declined guests" style="cursor:pointer"><span class="stat-label">Declined</span><span class="stat-value" id="stDeclined">—</span></div>
       </div>
 
       <!-- FILTERS -->
@@ -114,6 +114,14 @@
         <button class="btn" id="bulkListMessaging" style="background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:500" title="Add selected to Invites (skips guests already in invites)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           List for Invites
+        </button>
+        <button class="btn" id="bulkWaitlistSend" style="border-color:#D4A744;color:#D4A744" title="Set selected to Waitlist + send waitlist email and SMS">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Waitlist & send
+        </button>
+        <button class="btn" id="bulkConfirmSend" style="background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:500" title="Set selected to Approved + send confirmation email and SMS">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><polyline points="20 6 9 17 4 12"/></svg>
+          Confirm & send
         </button>
         <button class="btn" id="bulkDeselectBtn">Clear</button>
       </div>
@@ -613,6 +621,17 @@ function bindEvents() {
     filters.invite = e.target.value;
     render();
   });
+  // Clickable stat cards — apply the corresponding invite filter
+  document.querySelectorAll('.stat-clickable').forEach(card => {
+    card.addEventListener('click', () => {
+      const f = card.dataset.filterInvite;
+      filters.invite = f;
+      document.getElementById('inviteFilter').value = f;
+      render();
+      // Scroll the table into view on mobile
+      document.querySelector('.bulk-bar')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
   document.getElementById('tagFilter').addEventListener('change', e => {
     filters.tag = e.target.value;
     render();
@@ -671,6 +690,8 @@ function bindEvents() {
     e.target.value = '';
   });
   document.getElementById('bulkListMessaging').addEventListener('click', bulkListForMessaging);
+  document.getElementById('bulkConfirmSend').addEventListener('click', bulkConfirmAndSend);
+  document.getElementById('bulkWaitlistSend').addEventListener('click', bulkWaitlistAndSend);
   document.getElementById('bulkDeselectBtn').addEventListener('click', () => {
     selectedIds.clear();
     render();
@@ -711,6 +732,83 @@ async function bulkListForMessaging() {
     await loadGuests();
   } catch (err) {
     showToast('Failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+
+async function bulkConfirmAndSend() {
+  const ids = Array.from(selectedIds);
+  if (ids.length === 0) return;
+
+  // Loud confirm — this sets status AND sends real messages
+  if (!confirm(`Confirm ${ids.length} guest${ids.length !== 1 ? 's' : ''}?\n\nStatus will be set to Approved and a confirmation email + SMS will be sent to each.\n\nProceed?`)) return;
+
+  const btn = document.getElementById('bulkConfirmSend');
+  btn.disabled = true;
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = 'Sending…';
+
+  try {
+    const res = await authFetch('/api/messaging/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds: ids })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const parts = [];
+    if (data.confirmed > 0) parts.push(`${data.confirmed} confirmed`);
+    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent !== 1 ? 's' : ''}`);
+    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
+    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
+
+    selectedIds.clear();
+    await loadGuests();
+  } catch (err) {
+    showToast('Confirm failed: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+
+async function bulkWaitlistAndSend() {
+  const ids = Array.from(selectedIds);
+  if (ids.length === 0) return;
+
+  if (!confirm(`Send Waitlist message to ${ids.length} guest${ids.length !== 1 ? 's' : ''}?\n\nStatus will be set to Waitlist and the waitlist email + SMS will be sent.\n\nProceed?`)) return;
+
+  const btn = document.getElementById('bulkWaitlistSend');
+  btn.disabled = true;
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = 'Sending…';
+
+  try {
+    const res = await authFetch('/api/messaging/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds: ids })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const parts = [];
+    if (data.waitlisted > 0) parts.push(`${data.waitlisted} waitlisted`);
+    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent !== 1 ? 's' : ''}`);
+    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
+    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
+
+    selectedIds.clear();
+    await loadGuests();
+  } catch (err) {
+    showToast('Waitlist failed: ' + err.message, 'error');
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHtml;
