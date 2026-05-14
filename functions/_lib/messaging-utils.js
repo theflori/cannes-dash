@@ -123,29 +123,16 @@ export async function generateUniqueCode(env, fieldName) {
 
 // ============== RESEND ==============
 
-// Resend allows 2 requests/second. To stay under the limit even when called in
-// tight loops (bulk confirm/waitlist/QR), we (a) pace consecutive calls and
-// (b) retry on 429 with exponential backoff.
-let _lastResendCallAt = 0;
-const RESEND_MIN_GAP_MS = 600; // ~1.6 req/sec, comfortably under the 2/sec cap
-
-async function _resendPace() {
-  const now = Date.now();
-  const wait = _lastResendCallAt + RESEND_MIN_GAP_MS - now;
-  if (wait > 0) await new Promise(r => setTimeout(r, wait));
-  _lastResendCallAt = Date.now();
-}
-
+// Resend allows 2 requests/second. We retry on 429 / 5xx with exponential
+// backoff, which by itself handles the rate limit. No module-level state.
 export async function sendEmail(env, { to, subject, html, text }) {
   if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
   const from = env.RESEND_FROM || 'Château Privé <rsvp@fraimit.com>';
 
-  const maxAttempts = 4;
+  const maxAttempts = 5;
   let lastErr;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    await _resendPace();
-
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -163,7 +150,7 @@ export async function sendEmail(env, { to, subject, html, text }) {
     if (res.status === 429 || res.status >= 500) {
       lastErr = new Error(`Resend ${res.status}: ${errText.substring(0, 200)}`);
       if (attempt < maxAttempts) {
-        const backoff = 800 * Math.pow(2, attempt - 1); // 800, 1600, 3200ms
+        const backoff = 600 * Math.pow(2, attempt - 1); // 600, 1200, 2400, 4800ms
         await new Promise(r => setTimeout(r, backoff));
         continue;
       }
