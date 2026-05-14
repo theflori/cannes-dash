@@ -826,18 +826,52 @@ async function bulkConfirmAndSend() {
 }
 
 async function bulkWaitlistAndSend() {
-  const ids = Array.from(selectedIds);
+  let ids = Array.from(selectedIds);
   if (ids.length === 0) return;
 
+  // SAFETY: split selection into safe (Pending/Listed/Semi/Waitlist) and
+  // dangerous (Approved/Declined/QR-sent/Checked-in) groups.
+  // The dangerous ones are auto-excluded — server enforces this too, but
+  // surfacing it in the UI prevents the user from being surprised.
+  const safe = [];
+  const skipped = [];
+  for (const id of ids) {
+    const g = allGuests.find(x => x.id === id);
+    if (!g) { skipped.push({ id: id, reason: 'unknown' }); continue; }
+    if (g.messagingStatus === 'Approved')         { skipped.push({ id: id, name: g.name, reason: 'Approved' }); continue; }
+    if (g.messagingStatus === 'Declined')         { skipped.push({ id: id, name: g.name, reason: 'Declined' }); continue; }
+    if (g.qrSentAt)                               { skipped.push({ id: id, name: g.name, reason: 'QR sent' }); continue; }
+    if (g.checkedIn)                              { skipped.push({ id: id, name: g.name, reason: 'Checked in' }); continue; }
+    safe.push(id);
+  }
+
+  if (safe.length === 0) {
+    showToast('All ' + ids.length + ' selected guests are already Approved / Declined / Checked-in — nothing to send.', 'error');
+    return;
+  }
+
+  // Build the modal body. If we filtered some out, show a yellow warning so
+  // the user knows exactly what's going to happen.
+  let bodyHtml = '<p>Each selected guest will be set to <strong>Waitlist</strong> and receive:</p>'
+              + '<ul style="margin:8px 0 12px;padding-left:18px;color:#4a4843"><li>Waitlist email</li><li>Waitlist SMS (if phone present)</li></ul>';
+
+  if (skipped.length > 0) {
+    const sampleNames = skipped.slice(0, 5).map(s => escapeHtml(s.name || 'unknown') + ' (' + s.reason + ')').join(', ');
+    const more = skipped.length > 5 ? ' …and ' + (skipped.length - 5) + ' more' : '';
+    bodyHtml += '<div style="padding:10px 12px;background:rgba(212,167,68,0.12);border-left:3px solid #D4A744;font-size:12px;color:#7a5a14;line-height:1.5">'
+             + '<strong>' + skipped.length + ' guest' + (skipped.length !== 1 ? 's' : '') + ' will be skipped</strong> — they are already Approved, Declined, QR-sent or Checked-in:<br>'
+             + '<span style="color:#5a4310">' + sampleNames + more + '</span>'
+             + '</div>';
+  }
+
   const ok = await runBulkSendModal({
-    title: 'Set ' + ids.length + ' guest' + (ids.length !== 1 ? 's' : '') + ' to Waitlist?',
-    body: '<p>Each selected guest will be set to <strong>Waitlist</strong> and receive:</p>'
-        + '<ul style="margin:8px 0 0;padding-left:18px;color:#4a4843"><li>Waitlist email</li><li>Waitlist SMS (if phone present)</li></ul>',
-    confirmLabel: 'Send Waitlist to ' + ids.length,
-    totalCount: ids.length,
+    title: 'Set ' + safe.length + ' guest' + (safe.length !== 1 ? 's' : '') + ' to Waitlist?',
+    body: bodyHtml,
+    confirmLabel: 'Send Waitlist to ' + safe.length,
+    totalCount: safe.length,
     chunkSize: 20,
     chunkDelayMs: 2000,
-    ids: ids,
+    ids: safe,
     summaryKeys: [
       { key: 'waitlisted', label: 'waitlisted' },
       { key: 'emailSent',  label: 'emails sent' },

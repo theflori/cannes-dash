@@ -52,9 +52,34 @@ export async function onRequestPost(context) {
         continue;
       }
 
+      const currentStatus = f['Messaging Status'] || '';
+
+      // HARD GUARD: never send a waitlist email to a guest who is already
+      // Approved, Declined, or who has already received their QR. This protects
+      // against accidental "select all + waitlist" actions.
+      // emailOnly mode is exempt (it's for resending to existing Waitlist guests).
+      if (!emailOnly) {
+        if (currentStatus === 'Approved') {
+          results.skipped.push({ id: recordId, reason: 'already-approved' });
+          continue;
+        }
+        if (currentStatus === 'Declined') {
+          results.skipped.push({ id: recordId, reason: 'already-declined' });
+          continue;
+        }
+        if (f['QR Sent At']) {
+          results.skipped.push({ id: recordId, reason: 'qr-already-sent' });
+          continue;
+        }
+        if (f['Checked In'] === true) {
+          results.skipped.push({ id: recordId, reason: 'already-checked-in' });
+          continue;
+        }
+      }
+
       // In emailOnly mode, skip non-waitlist guests
-      if (emailOnly && f['Messaging Status'] !== 'Waitlist') {
-        results.skipped.push({ id: recordId, reason: 'not-on-waitlist (' + (f['Messaging Status'] || 'empty') + ')' });
+      if (emailOnly && currentStatus !== 'Waitlist') {
+        results.skipped.push({ id: recordId, reason: 'not-on-waitlist (' + (currentStatus || 'empty') + ')' });
         continue;
       }
 

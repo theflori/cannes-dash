@@ -1785,18 +1785,49 @@ async function waitlistSingle(recordId, btnEl) {
 async function waitlistBulk(recordIds) {
   if (!recordIds || recordIds.length === 0) return;
 
-  if (false) {
-    return await _waitlistBulkFast(recordIds);
+  // SAFETY: don't send waitlist mails to guests who are already Approved,
+  // Declined, QR-sent or Checked-in. Filter client-side AND let the server
+  // enforce as a second line of defense.
+  const safe = [];
+  const skipped = [];
+  for (const id of recordIds) {
+    const g = (typeof messagingGuests !== 'undefined' ? messagingGuests : []).find(x => x.id === id);
+    if (!g) { safe.push(id); continue; } // unknown — let server decide
+    if (g.messagingStatus === 'Approved')   { skipped.push({ id: id, name: g.name, reason: 'Approved' }); continue; }
+    if (g.messagingStatus === 'Declined')   { skipped.push({ id: id, name: g.name, reason: 'Declined' }); continue; }
+    if (g.qrSentAt)                         { skipped.push({ id: id, name: g.name, reason: 'QR sent' }); continue; }
+    if (g.checkedIn)                        { skipped.push({ id: id, name: g.name, reason: 'Checked in' }); continue; }
+    safe.push(id);
+  }
+
+  if (safe.length === 0) {
+    showToast('All ' + recordIds.length + ' selected are already Approved / Declined / Checked-in — nothing to send.', 'error');
+    return;
+  }
+
+  // Single-row fast path stays single-row
+  if (safe.length === 1 && recordIds.length === 1) {
+    return await _waitlistBulkFast(safe);
+  }
+
+  let bodyHtml = '<p>Each selected guest will be set to <strong>Waitlist</strong> and receive a waitlist email + SMS.</p>';
+  if (skipped.length > 0) {
+    const sampleNames = skipped.slice(0, 5).map(s => escapeHtml(s.name || 'unknown') + ' (' + s.reason + ')').join(', ');
+    const more = skipped.length > 5 ? ' …and ' + (skipped.length - 5) + ' more' : '';
+    bodyHtml += '<div style="margin-top:12px;padding:10px 12px;background:rgba(212,167,68,0.12);border-left:3px solid #D4A744;font-size:12px;color:#7a5a14;line-height:1.5">'
+             + '<strong>' + skipped.length + ' guest' + (skipped.length !== 1 ? 's' : '') + ' will be skipped</strong> — already Approved, Declined, QR-sent or Checked-in:<br>'
+             + '<span style="color:#5a4310">' + sampleNames + more + '</span>'
+             + '</div>';
   }
 
   const ok = await runBulkSendModal({
-    title: 'Set ' + recordIds.length + ' guest' + (recordIds.length !== 1 ? 's' : '') + ' to Waitlist?',
-    body: '<p>Each selected guest will be set to <strong>Waitlist</strong> and receive a waitlist email + SMS.</p>',
-    confirmLabel: 'Send Waitlist to ' + recordIds.length,
-    totalCount: recordIds.length,
+    title: 'Set ' + safe.length + ' guest' + (safe.length !== 1 ? 's' : '') + ' to Waitlist?',
+    body: bodyHtml,
+    confirmLabel: 'Send Waitlist to ' + safe.length,
+    totalCount: safe.length,
     chunkSize: 20,
     chunkDelayMs: 2000,
-    ids: recordIds,
+    ids: safe,
     summaryKeys: [
       { key: 'waitlisted', label: 'waitlisted' },
       { key: 'emailSent',  label: 'emails' },
