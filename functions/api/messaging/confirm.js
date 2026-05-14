@@ -45,8 +45,9 @@ export async function onRequestPost(context) {
   if (recordIds.length === 0) return jsonError('Missing recordIds', 400);
   if (recordIds.length > 50) return jsonError('Too many records (max 50)', 400);
 
-  // Default true — Confirm action bundles QR
-  const sendQr = body.sendQr !== false;
+  // Default false — QR is sent via the separate "Confirm & send QR" action,
+  // not bundled with the regular Confirm. Callers can opt-in by passing sendQr:true.
+  const sendQr = body.sendQr === true;
 
   const results = {
     confirmed: 0, emailSent: 0, smsSent: 0, qrEmailSent: 0,

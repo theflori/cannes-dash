@@ -119,13 +119,13 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Waitlist & send
         </button>
-        <button class="btn" id="bulkConfirmSend" style="background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:500" title="Set selected to Approved + send confirmation email + SMS + QR access mail">
+        <button class="btn" id="bulkConfirmSend" style="background:var(--gold);border-color:var(--gold);color:var(--ink);font-weight:500" title="Set selected to Approved + send confirmation email + SMS (no QR)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><polyline points="20 6 9 17 4 12"/></svg>
           Confirm & send
         </button>
-        <button class="btn" id="bulkSendQr" style="border-color:#b8965a;color:#b8965a" title="Send QR + event details to selected Approved guests">
+        <button class="btn" id="bulkConfirmQr" style="background:#b8965a;border-color:#b8965a;color:#fff;font-weight:500" title="Set selected to Approved + send confirmation email + SMS + QR access mail">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14h1v1h-1zM14 20h1v1h-1zM20 20h1v1h-1z"/></svg>
-          Send QR
+          Confirm & send QR
         </button>
         <button class="btn" id="bulkDeselectBtn">Clear</button>
       </div>
@@ -696,7 +696,7 @@ function bindEvents() {
   document.getElementById('bulkListMessaging').addEventListener('click', bulkListForMessaging);
   document.getElementById('bulkConfirmSend').addEventListener('click', bulkConfirmAndSend);
   document.getElementById('bulkWaitlistSend').addEventListener('click', bulkWaitlistAndSend);
-  document.getElementById('bulkSendQr').addEventListener('click', bulkSendQrOnly);
+  document.getElementById('bulkConfirmQr').addEventListener('click', bulkConfirmAndSendQr);
   document.getElementById('bulkDeselectBtn').addEventListener('click', () => {
     selectedIds.clear();
     render();
@@ -821,30 +821,31 @@ async function bulkWaitlistAndSend() {
   }
 }
 
-async function bulkSendQrOnly() {
+async function bulkConfirmAndSendQr() {
   const ids = Array.from(selectedIds);
   if (ids.length === 0) return;
 
-  if (!confirm(`Send QR + event details to ${ids.length} guest${ids.length !== 1 ? 's' : ''}?\n\nOnly Approved guests will be sent — non-approved are skipped automatically.\nNo status change.\n\nProceed?`)) return;
+  if (!confirm(`Confirm + send QR to ${ids.length} guest${ids.length !== 1 ? 's' : ''}?\n\nStatus will be set to Approved.\nSends: confirmation email + SMS + QR access email.\n\nProceed?`)) return;
 
-  const btn = document.getElementById('bulkSendQr');
+  const btn = document.getElementById('bulkConfirmQr');
   btn.disabled = true;
   const originalHtml = btn.innerHTML;
   btn.innerHTML = 'Sending…';
 
   try {
-    const res = await authFetch('/api/messaging/send-qr-to-guest', {
+    const res = await authFetch('/api/messaging/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recordIds: ids })
+      body: JSON.stringify({ recordIds: ids, sendQr: true })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     const parts = [];
-    if (data.sent > 0) parts.push(`${data.sent} sent`);
+    if (data.confirmed > 0) parts.push(`${data.confirmed} confirmed`);
     if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent !== 1 ? 's' : ''}`);
     if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.qrEmailSent > 0) parts.push(`${data.qrEmailSent} QR`);
     if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
     if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
     showToast(parts.length > 0 ? parts.join(' · ') : 'Nothing sent', data.failed?.length > 0 ? 'error' : 'success');
@@ -852,7 +853,7 @@ async function bulkSendQrOnly() {
     selectedIds.clear();
     await loadGuests();
   } catch (err) {
-    showToast('Send QR failed: ' + err.message, 'error');
+    showToast('Confirm + QR failed: ' + err.message, 'error');
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHtml;
