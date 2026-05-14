@@ -580,7 +580,7 @@ export function renderEventUpdateSms({ name, declineCode }) {
 // Sent ~24h before event. REVEALS THE ADDRESS. Contains QR placeholder.
 export function render24hReminderEmail({ name, declineCode, qrCodeImageUrl }) {
   const firstName = (name || '').split(' ')[0] || 'there';
-  const subject = `Tomorrow — Château Privé · ${EVENT.dateShort}`;
+  const subject = `Your access — Château Privé · ${EVENT.dateShort}`;
   const declineUrl = shortUrl(declineCode);
 
   // QR placeholder — empty by default, fills when door-check-in system is ready
@@ -594,7 +594,7 @@ export function render24hReminderEmail({ name, declineCode, qrCodeImageUrl }) {
 
   const text = `Dear ${firstName},
 
-A reminder for tomorrow.
+Your access to Château Privé is confirmed. The full address, your entry pass, and what to bring — below.
 
 DATE: ${EVENT.dateFull}
 DOORS: ${EVENT.doorsLabel}
@@ -603,12 +603,12 @@ Map: ${EVENT.addressMapsUrl}
 
 For verification at the door, please bring:
 - A government-issued ID
-- Have your Instagram handle ready
+- Your Instagram profile accessible — we may check it on arrival
 
 If you can no longer attend:
 ${declineUrl}
 
-See you tomorrow.
+We look forward to having you.
 
 — Château Privé
 `;
@@ -647,14 +647,14 @@ body { margin: 0; padding: 0; }
 </td></tr>
 
 <tr><td class="px-40" align="left" style="padding:40px 40px 28px">
-<p style="margin:0 0 10px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Tomorrow</p>
-<h1 class="h1" style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:36px;line-height:1.1;color:#d4b884;letter-spacing:-0.3px">See you tomorrow.</h1>
+<p style="margin:0 0 10px;font-family:'EB Garamond',Georgia,serif;font-size:10px;color:#d4b884;letter-spacing:3px;text-transform:uppercase">Your access</p>
+<h1 class="h1" style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:36px;line-height:1.1;color:#d4b884;letter-spacing:-0.3px">Château Privé</h1>
 </td></tr>
 
 <tr><td class="px-40" align="left" style="padding:0 40px 28px">
 <p style="margin:0 0 14px;font-family:'EB Garamond',Georgia,serif;font-size:16px;line-height:1.6;color:#F1ECDF">Dear ${escapeHtml(firstName)},</p>
 <p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:16px;line-height:1.6;color:rgba(241,236,223,0.85)">
-A quick reminder for <span style="color:#F1ECDF">Château Privé</span> tomorrow, with the full address.
+Your seat is confirmed. The full address, your entry pass, and a few practical notes — everything you need is below.
 </p>
 </td></tr>
 
@@ -687,7 +687,7 @@ ${qrBlock}
 <p style="margin:0;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.65;color:rgba(241,236,223,0.85)">
 For verification, please bring:<br>
 &middot; A government-issued ID<br>
-&middot; Have your Instagram handle ready
+&middot; Your Instagram profile accessible — we may check it on arrival
 </p>
 </td></tr>
 
@@ -711,8 +711,9 @@ Can no longer attend? <a href="${escapeHtml(declineUrl)}" style="color:#d4b884;t
 
 export function render24hReminderSms({ name, declineCode }) {
   const firstName = (name || '').split(' ')[0] || '';
-  // SMS reveals the address in the 24h reminder
-  return `${firstName ? firstName + ', ' : ''}tomorrow at Château Privé · ${EVENT.address} · doors ${EVENT.doors}. Bring ID + IG handle. Can't attend? ${shortUrl(declineCode)}`;
+  // Reveals event-info via email — SMS just tells them where to look.
+  // Kept under ~160 chars where possible to stay a single SMS segment.
+  return `${firstName ? firstName + ', ' : ''}your Château Privé ticket (QR + address) is in your email. Check spam. Bring ID, IG may be checked. Can't attend? ${shortUrl(declineCode)}`;
 }
 
 // ============== REJECTION (capacity-based) ==============
