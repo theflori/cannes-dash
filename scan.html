@@ -181,24 +181,6 @@
     letter-spacing: 0.2px;
   }
 
-  /* Importance pill in scanner — large, prominent above the name */
-  .importance-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 22px;
-    border-radius: 100px;
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    line-height: 1;
-  }
-  .importance-pill.imp-vip-car { background: #B8965A; color: #1a1a1a; border: 1px solid #a47f3f; }
-  .importance-pill.imp-tier-1  { background: #d4d4d4; color: #1a1a1a; border: 1px solid #aaa; }
-  .importance-pill.imp-tier-2  { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.4); }
-  .importance-pill.imp-tier-3  { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid rgba(0,0,0,0.5); }
-
   /* Plus-one info block — shows who they're with */
   .plus-one-info {
     display: inline-flex;
@@ -407,7 +389,6 @@
 
   <div class="avatar-wrap">
     <div class="avatar" id="avatarBox">?</div>
-    <div id="importanceBox"></div>
     <div>
       <div class="guest-name" id="guestName">—</div>
       <div class="guest-ig" id="guestIg"></div>
@@ -568,17 +549,6 @@
       avatarBox.innerHTML = '<img src="/api/avatar?url=' + encodeURIComponent(g.igAvatarUrl) + '" onerror="this.outerHTML=\'' + (initials(g.name) || '?') + '\'">';
     } else {
       avatarBox.textContent = initials(g.name) || '?';
-    }
-
-    // Importance pill — slug-converted class so colors render
-    const importanceBox = document.getElementById('importanceBox');
-    if (g.importance) {
-      const slug = String(g.importance).toLowerCase().replace(/[\/\s]+/g, '-');
-      importanceBox.innerHTML = '<div class="importance-pill imp-' + slug + '">' + escapeHtml(g.importance) + '</div>';
-      importanceBox.style.display = 'block';
-    } else {
-      importanceBox.innerHTML = '';
-      importanceBox.style.display = 'none';
     }
 
     // Plus-one info — three possible states:

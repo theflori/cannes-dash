@@ -577,7 +577,6 @@ function bindCsvExport() {
       { key: 'referredBy', label: 'Referred By' },
       { key: 'messagingStatus', label: 'Messaging Status', format: v => v || 'Pending' },
       { key: 'tags', label: 'Tags' },
-      { key: 'importance', label: 'Importance' },
       { key: 'hasPaid', label: 'Paid', format: v => v ? 'yes' : 'no' },
       { key: 'paidAt', label: 'Paid At', format: formatDate },
       { key: 'qrSentAt', label: 'QR Sent At', format: formatDate },
@@ -634,60 +633,67 @@ function bindBroadcastButtons() {
   document.getElementById('btnEventUpdate').addEventListener('click', async () => {
     const approved = messagingGuests.filter(g => g.messagingStatus === 'Approved');
     if (approved.length === 0) return;
-    const msg = `Send EVENT UPDATE to all ${approved.length} approved guest${approved.length !== 1 ? 's' : ''}?\n\nSent in chunks of ${MSG_BULK_CHUNK_SIZE}. The address is NOT revealed in this email.\n\nProceed?`;
+    const msg = `Send EVENT UPDATE to all ${approved.length} approved guest${approved.length !== 1 ? 's' : ''}?\n\nThis informs them of a date/details change. The address is NOT revealed in this email.\n\nProceed?`;
     if (!confirm(msg)) return;
 
     const btn = document.getElementById('btnEventUpdate');
-    const origText = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Sending…';
     try {
-      const ids = approved.map(g => g.id);
-      await chunkedMsgSend({
-        url: '/api/messaging/send-event-update',
-        ids,
-        body: {},
-        statKeys: ['notified', 'emailSent', 'smsSent'],
-        labels: { notified: 'notified', emailSent: 'emails', smsSent: 'SMS' },
-        progressLabel: 'Sending update'
+      const res = await fetch('/api/messaging/send-event-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const parts = [];
+      if (data.notified > 0) parts.push(`${data.notified} notified`);
+      if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent !== 1 ? 's' : ''}`);
+      if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+      if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+      showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
       await loadGuests();
     } catch (err) {
       showToast('Event update failed: ' + err.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = origText;
+      btn.textContent = 'Send event update';
     }
   });
 
   document.getElementById('btn24hReminder').addEventListener('click', async () => {
     const approved = messagingGuests.filter(g => g.messagingStatus === 'Approved');
     if (approved.length === 0) return;
-    const msg = `Send 24H REMINDER to all ${approved.length} approved guest${approved.length !== 1 ? 's' : ''}?\n\nSent in chunks of ${MSG_BULK_CHUNK_SIZE}. This REVEALS THE ADDRESS and is meant for the day before the event.\n\nAre you sure?`;
+    const msg = `Send 24H REMINDER to all ${approved.length} approved guest${approved.length !== 1 ? 's' : ''}?\n\nThis REVEALS THE ADDRESS and is meant for the day before the event.\n\nAre you sure?`;
     if (!confirm(msg)) return;
+    // Second confirmation because this reveals the address
     const msg2 = `Final confirmation — address will be sent now.\n\nContinue?`;
     if (!confirm(msg2)) return;
 
     const btn = document.getElementById('btn24hReminder');
-    const origText = btn.textContent;
     btn.disabled = true;
     btn.textContent = 'Sending…';
     try {
-      const ids = approved.map(g => g.id);
-      await chunkedMsgSend({
-        url: '/api/messaging/send-24h-reminder',
-        ids,
-        body: {},
-        statKeys: ['notified', 'emailSent', 'smsSent'],
-        labels: { notified: 'notified', emailSent: 'emails', smsSent: 'SMS' },
-        progressLabel: 'Sending reminder'
+      const res = await fetch('/api/messaging/send-24h-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const parts = [];
+      if (data.notified > 0) parts.push(`${data.notified} notified`);
+      if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent !== 1 ? 's' : ''}`);
+      if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+      if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+      showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
       await loadGuests();
     } catch (err) {
       showToast('24h reminder failed: ' + err.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = origText;
+      btn.textContent = 'Send 24h reminder';
     }
   });
 }
@@ -1422,7 +1428,7 @@ function rowHtml(g) {
           <div class="name-text">
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               ${errorDot}
-              ${isAListGuest(g) ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${g.importance ? '<span title="Importance: ' + escapeAttr(g.importance) + '" style="' + importancePillStyle(g.importance) + ';display:inline-flex;align-items:center;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase">' + escapeHtml(g.importance) + '</span>' : ''}${renderFitIndicator(g)}${renderAllowanceChip(g)}
+              ${isAListGuest(g) ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}${renderAllowanceChip(g)}
               ${g.qrSentAt ? '<span title="QR + event details sent" style="display:inline-flex;align-items:center;padding:1px 6px;background:rgba(31,122,60,0.12);color:#1f7a3c;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:0.3px">QR ✓</span>' : ''}
               ${g.checkedIn ? '<span title="Checked in (' + g.checkInCount + ' scan' + (g.checkInCount !== 1 ? 's' : '') + ')" style="display:inline-flex;align-items:center;padding:1px 6px;background:#1f7a3c;color:#fff;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:0.3px">IN</span>' : ''}
               ${g.plusOneOfName ? '<span class="plus-one-chip" title="Plus-one of ' + escapeAttr(g.plusOneOfName) + '" style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;background:rgba(184,150,90,0.12);color:#8a6c2e;border-radius:10px;font-size:10px;font-weight:500;letter-spacing:0.3px;white-space:nowrap">+1 · ' + escapeHtml(g.plusOneOfName) + '</span>' : ''}
@@ -1632,81 +1638,25 @@ async function sendQrSingle(recordId, btnEl) {
   }
 }
 
-// ============== CHUNKED BULK SEND ==============
-// Splits recordIds into chunks of 25 and sends them sequentially with progress.
-// Aggregates stats. Survives chunk failures. Single-row calls bypass chunking
-// (chunk size 1 still works, just adds no overhead).
-const MSG_BULK_CHUNK_SIZE = 25;
-
-async function chunkedMsgSend({ url, ids, body, statKeys, labels, progressLabel = 'Sending' }) {
-  const chunks = [];
-  for (let i = 0; i < ids.length; i += MSG_BULK_CHUNK_SIZE) {
-    chunks.push(ids.slice(i, i + MSG_BULK_CHUNK_SIZE));
-  }
-
-  const agg = {};
-  for (const k of statKeys) agg[k] = 0;
-  agg.failed = [];
-  agg.skipped = [];
-  let chunkErrors = 0;
-
-  // Bulk-bar feedback if multi-chunk
-  const bulkBar = document.querySelector('.bulk-bar:not(.hidden) .count') || null;
-  const origBarText = bulkBar ? bulkBar.textContent : '';
-
-  for (let i = 0; i < chunks.length; i++) {
-    if (bulkBar && chunks.length > 1) {
-      const from = i * MSG_BULK_CHUNK_SIZE + 1;
-      const to = Math.min((i + 1) * MSG_BULK_CHUNK_SIZE, ids.length);
-      bulkBar.textContent = `${progressLabel} ${from}–${to} of ${ids.length}…`;
-    }
-
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body, recordIds: chunks[i] })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      for (const k of statKeys) {
-        if (typeof data[k] === 'number') agg[k] += data[k];
-      }
-      if (Array.isArray(data.failed)) agg.failed.push(...data.failed);
-      if (Array.isArray(data.skipped)) agg.skipped.push(...data.skipped);
-    } catch (err) {
-      chunkErrors++;
-      showToast(`Chunk ${i + 1}/${chunks.length} failed: ${err.message}`, 'error');
-    }
-
-    if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 1200));
-  }
-
-  if (bulkBar) bulkBar.textContent = origBarText;
-
-  const parts = [];
-  for (const [key, label] of Object.entries(labels)) {
-    const v = agg[key];
-    if (typeof v === 'number' && v > 0) parts.push(`${v} ${label}`);
-  }
-  if (agg.skipped.length > 0) parts.push(`${agg.skipped.length} skipped`);
-  if (agg.failed.length > 0) parts.push(`${agg.failed.length} failed`);
-  if (chunkErrors > 0) parts.push(`${chunkErrors} chunk error${chunkErrors !== 1 ? 's' : ''}`);
-
-  const hasErrors = agg.failed.length > 0 || chunkErrors > 0;
-  showToast(parts.length > 0 ? parts.join(' · ') : 'Done', hasErrors ? 'error' : 'success');
-}
-
 async function sendBulk(recordIds) {
   if (recordIds.length === 0) return;
   try {
-    await chunkedMsgSend({
-      url: '/api/messaging/send',
-      ids: recordIds,
-      body: {},
-      statKeys: ['sent', 'emailSent', 'smsSent'],
-      labels: { sent: 'sent', emailSent: 'emails', smsSent: 'SMS' }
+    const res = await fetch('/api/messaging/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds })
     });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const parts = [];
+    if (data.sent > 0) parts.push(`${data.sent} sent`);
+    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
+    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
+    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Nothing to send', data.failed?.length > 0 ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {
@@ -1724,19 +1674,23 @@ async function confirmBulk(recordIds, opts) {
   if (recordIds.length === 0) return;
   const sendQr = opts && opts.sendQr === true;
   try {
-    await chunkedMsgSend({
-      url: '/api/messaging/confirm',
-      ids: recordIds,
-      body: { sendQr },
-      statKeys: ['confirmed', 'emailSent', 'smsSent', 'qrEmailSent'],
-      labels: {
-        confirmed: 'confirmed',
-        emailSent: 'emails',
-        smsSent: 'SMS',
-        qrEmailSent: 'QR'
-      },
-      progressLabel: 'Confirming'
+    const res = await fetch('/api/messaging/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds, sendQr })
     });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const parts = [];
+    if (data.confirmed > 0) parts.push(`${data.confirmed} confirmed`);
+    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
+    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.qrEmailSent > 0) parts.push(`${data.qrEmailSent} QR`);
+    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
+    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {
@@ -1753,14 +1707,22 @@ async function waitlistSingle(recordId, btnEl) {
 async function waitlistBulk(recordIds) {
   if (recordIds.length === 0) return;
   try {
-    await chunkedMsgSend({
-      url: '/api/messaging/waitlist',
-      ids: recordIds,
-      body: {},
-      statKeys: ['waitlisted', 'emailSent', 'smsSent'],
-      labels: { waitlisted: 'waitlisted', emailSent: 'emails', smsSent: 'SMS' },
-      progressLabel: 'Waitlisting'
+    const res = await fetch('/api/messaging/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordIds })
     });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+    const parts = [];
+    if (data.waitlisted > 0) parts.push(`${data.waitlisted} waitlisted`);
+    if (data.emailSent > 0) parts.push(`${data.emailSent} email${data.emailSent>1?'s':''}`);
+    if (data.smsSent > 0) parts.push(`${data.smsSent} SMS`);
+    if (data.skipped && data.skipped.length > 0) parts.push(`${data.skipped.length} skipped`);
+    if (data.failed && data.failed.length > 0) parts.push(`${data.failed.length} failed`);
+
+    showToast(parts.length > 0 ? parts.join(' · ') : 'Done', data.failed?.length > 0 ? 'error' : 'success');
     selectedIds.clear();
     await loadGuests();
   } catch (err) {

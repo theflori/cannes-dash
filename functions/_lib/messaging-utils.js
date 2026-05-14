@@ -123,42 +123,26 @@ export async function generateUniqueCode(env, fieldName) {
 
 // ============== RESEND ==============
 
-// Resend allows 2 requests/second. We retry on 429 / 5xx with exponential
-// backoff, which by itself handles the rate limit. No module-level state.
 export async function sendEmail(env, { to, subject, html, text }) {
   if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
   const from = env.RESEND_FROM || 'Château Privé <rsvp@fraimit.com>';
 
-  const maxAttempts = 5;
-  let lastErr;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ from, to, subject, html, text })
-    });
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ from, to, subject, html, text })
+  });
 
-    if (res.ok) return await res.json();
-
+  if (!res.ok) {
     const errText = await res.text();
-
-    // Retry on 429 (rate limit) or 5xx (transient). Otherwise bail immediately.
-    if (res.status === 429 || res.status >= 500) {
-      lastErr = new Error(`Resend ${res.status}: ${errText.substring(0, 200)}`);
-      if (attempt < maxAttempts) {
-        const backoff = 600 * Math.pow(2, attempt - 1); // 600, 1200, 2400, 4800ms
-        await new Promise(r => setTimeout(r, backoff));
-        continue;
-      }
-    } else {
-      throw new Error(`Resend ${res.status}: ${errText.substring(0, 200)}`);
-    }
+    throw new Error(`Resend ${res.status}: ${errText.substring(0, 200)}`);
   }
-  throw lastErr || new Error('Resend failed after retries');
+
+  return await res.json();
 }
 
 // ============== TWILIO ==============

@@ -311,14 +311,3 @@ function isAListGuest(g) {
   if (g.source === 'Manual A-List') return true;
   return false;
 }
-
-// ============== IMPORTANCE PILL STYLES ==============
-// Returns inline CSS string for an importance pill background/border.
-// Used in: scan.html, guests.html, messaging.html.
-function importancePillStyle(val) {
-  if (val === 'VIP/Car') return 'background:#B8965A;color:#1a1a1a;border:1px solid #a47f3f';
-  if (val === 'Tier 1')  return 'background:#e8e8e8;color:#1a1a1a;border:1px solid #bbb';
-  if (val === 'Tier 2')  return 'background:#bbb;color:#1a1a1a;border:1px solid #888';
-  if (val === 'Tier 3')  return 'background:#555;color:#fff;border:1px solid #333';
-  return 'background:transparent;color:#888;border:1px solid #ccc';
-}
