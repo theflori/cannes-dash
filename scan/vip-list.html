@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <meta name="theme-color" content="#0F0C09">
-<title>VIP / Car List — Château Privé</title>
+<title>Priority List — Château Privé</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -23,16 +23,16 @@
     z-index: 10;
     background: #0F0C09;
     border-bottom: 1px solid rgba(241,236,223,0.12);
-    padding: 14px 16px;
+    padding: 10px 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
   }
   .brand {
     font-family: 'Cormorant Garamond', Georgia, serif;
     font-style: italic;
-    font-size: 16px;
+    font-size: 14px;
     color: #d4b884;
     line-height: 1;
   }
@@ -40,30 +40,30 @@
     display: block;
     font-family: -apple-system, sans-serif;
     font-style: normal;
-    font-size: 10px;
+    font-size: 9px;
     color: rgba(241,236,223,0.5);
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    margin-top: 3px;
+    margin-top: 2px;
   }
   .back-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
+    gap: 4px;
+    padding: 6px 10px;
     background: transparent;
     border: 1px solid rgba(241,236,223,0.2);
     color: #F1ECDF;
-    font-size: 13px;
+    font-size: 12px;
     text-decoration: none;
     border-radius: 4px;
   }
   .count-badge {
-    padding: 5px 10px;
+    padding: 4px 9px;
     background: #B8965A;
     color: #0F0C09;
-    border-radius: 12px;
-    font-size: 12px;
+    border-radius: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.5px;
   }
@@ -71,22 +71,22 @@
   /* Filter bar */
   .filter-bar {
     display: flex;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: 6px;
+    padding: 8px 12px;
     border-bottom: 1px solid rgba(241,236,223,0.08);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
   .filter-pill {
     flex-shrink: 0;
-    padding: 8px 14px;
+    padding: 6px 11px;
     background: rgba(241,236,223,0.06);
     border: 1px solid rgba(241,236,223,0.15);
     color: rgba(241,236,223,0.7);
-    border-radius: 16px;
-    font-size: 12px;
+    border-radius: 14px;
+    font-size: 11px;
     font-weight: 500;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
@@ -96,24 +96,24 @@
     color: #0F0C09;
   }
   .filter-pill .ct {
-    margin-left: 6px;
+    margin-left: 4px;
     opacity: 0.7;
     font-weight: 400;
   }
 
   /* Search */
   .search-wrap {
-    padding: 10px 16px;
+    padding: 8px 12px;
     border-bottom: 1px solid rgba(241,236,223,0.08);
   }
   .search {
     width: 100%;
-    padding: 11px 14px;
+    padding: 9px 12px;
     background: rgba(241,236,223,0.06);
     border: 1px solid rgba(241,236,223,0.15);
-    border-radius: 6px;
+    border-radius: 5px;
     color: #F1ECDF;
-    font-size: 15px;
+    font-size: 14px;
     outline: none;
     -webkit-appearance: none;
   }
@@ -121,21 +121,21 @@
   .search:focus { border-color: #B8965A; }
 
   /* List */
-  .list { padding: 8px 0; }
+  .list { padding: 4px 0; }
   .row {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 16px;
+    gap: 10px;
+    padding: 9px 12px;
     border-bottom: 1px solid rgba(241,236,223,0.06);
     -webkit-tap-highlight-color: rgba(184,150,90,0.15);
   }
-  .row.checked-in { opacity: 0.5; }
+  .row.checked-in { opacity: 0.45; }
 
   .avatar {
     flex-shrink: 0;
-    width: 56px;
-    height: 56px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: rgba(241,236,223,0.08);
     border: 1px solid rgba(184,150,90,0.4);
@@ -152,59 +152,69 @@
   .avatar .initials {
     font-family: 'Cormorant Garamond', Georgia, serif;
     font-style: italic;
-    font-size: 22px;
+    font-size: 16px;
     color: #d4b884;
   }
 
   .info { flex: 1; min-width: 0; }
   .name {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #F1ECDF;
     line-height: 1.2;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .meta {
+  .name .star {
+    color: #d4b884;
+    margin-right: 3px;
     font-size: 12px;
-    color: rgba(241,236,223,0.6);
-    line-height: 1.4;
+  }
+  .meta {
+    font-size: 11px;
+    color: rgba(241,236,223,0.55);
+    line-height: 1.3;
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 10px;
+    gap: 2px 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .meta a {
     color: #d4b884;
     text-decoration: none;
   }
   .meta .followers {
-    color: rgba(241,236,223,0.5);
+    color: rgba(241,236,223,0.45);
   }
 
   .badge-stack {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 4px;
+    gap: 3px;
     flex-shrink: 0;
   }
   .pill {
     display: inline-flex;
     align-items: center;
-    padding: 3px 9px;
-    border-radius: 10px;
-    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     text-transform: uppercase;
     line-height: 1.3;
+    white-space: nowrap;
   }
-  .pill-vip {
-    background: #B8965A;
-    color: #0F0C09;
-  }
+  .pill-vip { background: #B8965A; color: #0F0C09; }
+  .pill-t1  { background: #e8e8e8; color: #1a1a1a; }
+  .pill-t2  { background: #bbb;    color: #1a1a1a; }
+  .pill-t3  { background: #555;    color: #fff; }
+  .pill-alist { background: rgba(184,150,90,0.18); color: #d4b884; border: 1px solid rgba(184,150,90,0.5); }
   .pill-paid {
     background: #1f7a3c;
     color: #fff;
@@ -258,14 +268,19 @@
 
 <div class="top-bar">
   <a href="/scan" class="back-btn">←&nbsp;Scanner</a>
-  <div class="brand">Château Privé<small>VIP / Car</small></div>
+  <div class="brand">Château Privé<small>Priority List</small></div>
   <span class="count-badge" id="countBadge">—</span>
 </div>
 
 <div class="filter-bar">
   <button class="filter-pill active" data-filter="all">All <span class="ct" id="ctAll">—</span></button>
+  <button class="filter-pill" data-filter="vip">VIP/Car <span class="ct" id="ctVip">—</span></button>
+  <button class="filter-pill" data-filter="t1">Tier 1 <span class="ct" id="ctT1">—</span></button>
+  <button class="filter-pill" data-filter="t2">Tier 2 <span class="ct" id="ctT2">—</span></button>
+  <button class="filter-pill" data-filter="t3">Tier 3 <span class="ct" id="ctT3">—</span></button>
+  <button class="filter-pill" data-filter="alist">★ A-List <span class="ct" id="ctAList">—</span></button>
   <button class="filter-pill" data-filter="pending">Not in <span class="ct" id="ctPending">—</span></button>
-  <button class="filter-pill" data-filter="checkedin">Checked in <span class="ct" id="ctIn">—</span></button>
+  <button class="filter-pill" data-filter="checkedin">✓ In <span class="ct" id="ctIn">—</span></button>
   <button class="refresh-btn" id="refreshBtn" style="margin-left:auto;flex-shrink:0">↻</button>
 </div>
 
@@ -310,6 +325,15 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+function importancePill(g) {
+  if (g.importance === 'VIP/Car') return '<span class="pill pill-vip">VIP / Car</span>';
+  if (g.importance === 'Tier 1')  return '<span class="pill pill-t1">Tier 1</span>';
+  if (g.importance === 'Tier 2')  return '<span class="pill pill-t2">Tier 2</span>';
+  if (g.importance === 'Tier 3')  return '<span class="pill pill-t3">Tier 3</span>';
+  if (g.isAList)                  return '<span class="pill pill-alist">A-List</span>';
+  return '';
+}
+
 function rowHtml(g) {
   const avatar = g.igAvatarUrl
     ? `<img src="${avatarProxy(g.igAvatarUrl)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="initials" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center">${initials(g.name)}</span>`
@@ -331,14 +355,17 @@ function rowHtml(g) {
     : '<span style="opacity:0.4">No social handle</span>';
 
   const badges = [];
-  badges.push('<span class="pill pill-vip">VIP / Car</span>');
+  const imp = importancePill(g);
+  if (imp) badges.push(imp);
   if (g.hasPaid) badges.push('<span class="pill pill-paid">Paid</span>');
   if (g.checkedIn) badges.push('<span class="pill pill-in">✓ In</span>');
+
+  const star = g.isAList ? '<span class="star" title="A-List">★</span>' : '';
 
   return `<div class="row${g.checkedIn ? ' checked-in' : ''}" data-id="${g.id}">
     <div class="avatar">${avatar}</div>
     <div class="info">
-      <div class="name">${escapeHtml(g.name) || '—'}</div>
+      <div class="name">${star}${escapeHtml(g.name) || '—'}</div>
       <div class="meta">${metaHtml}</div>
     </div>
     <div class="badge-stack">${badges.join('')}</div>
@@ -347,8 +374,13 @@ function rowHtml(g) {
 
 function applyFilters() {
   let rows = allGuests.slice();
-  if (currentFilter === 'pending') rows = rows.filter(g => !g.checkedIn);
+  if (currentFilter === 'pending')   rows = rows.filter(g => !g.checkedIn);
   else if (currentFilter === 'checkedin') rows = rows.filter(g => g.checkedIn);
+  else if (currentFilter === 'vip')  rows = rows.filter(g => g.importance === 'VIP/Car');
+  else if (currentFilter === 't1')   rows = rows.filter(g => g.importance === 'Tier 1');
+  else if (currentFilter === 't2')   rows = rows.filter(g => g.importance === 'Tier 2');
+  else if (currentFilter === 't3')   rows = rows.filter(g => g.importance === 'Tier 3');
+  else if (currentFilter === 'alist') rows = rows.filter(g => g.isAList);
 
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
@@ -367,6 +399,11 @@ function render() {
   // Update counts
   const totalIn = allGuests.filter(g => g.checkedIn).length;
   $('ctAll').textContent = allGuests.length;
+  $('ctVip').textContent = allGuests.filter(g => g.importance === 'VIP/Car').length;
+  $('ctT1').textContent  = allGuests.filter(g => g.importance === 'Tier 1').length;
+  $('ctT2').textContent  = allGuests.filter(g => g.importance === 'Tier 2').length;
+  $('ctT3').textContent  = allGuests.filter(g => g.importance === 'Tier 3').length;
+  $('ctAList').textContent = allGuests.filter(g => g.isAList).length;
   $('ctPending').textContent = allGuests.length - totalIn;
   $('ctIn').textContent = totalIn;
   $('countBadge').textContent = totalIn + ' / ' + allGuests.length;
@@ -374,7 +411,7 @@ function render() {
   if (rows.length === 0) {
     content.innerHTML = `<div class="state">
       <h3>${searchQuery ? 'No matches' : 'Nothing here'}</h3>
-      <p>${searchQuery ? 'Try a different search.' : (currentFilter === 'all' ? 'No VIP / Car guests yet.' : 'No guests match this filter.')}</p>
+      <p>${searchQuery ? 'Try a different search.' : (currentFilter === 'all' ? 'No priority guests yet.' : 'No guests match this filter.')}</p>
     </div>`;
     return;
   }
