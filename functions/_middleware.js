@@ -11,13 +11,14 @@ export async function onRequest(context) {
 
   try {
     // === Public routes (no auth) ===
-    const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html', '/api/healthcheck'];
+    const publicRoutes = ['/login', '/api/login', '/api/logout', '/login.html', '/api/healthcheck',
+      '/buy', '/buy.html', '/paid', '/paid.html'];
     if (publicRoutes.some(p => url.pathname === p || url.pathname.startsWith(p + '/'))) {
       return next();
     }
 
     // Payment routes are public — Stripe servers / email recipients hit these without a session
-    if (url.pathname === '/api/payment/webhook' || url.pathname === '/api/payment/checkout') {
+    if (url.pathname === '/api/payment/webhook' || url.pathname === '/api/payment/checkout' || url.pathname === '/api/payment/direct-checkout') {
       return next();
     }
 

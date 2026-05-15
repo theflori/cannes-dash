@@ -43,7 +43,7 @@ export async function onRequestPost(context) {
   const mockPlusOneCode = 'TESTPLUS';
   const mockQrCode = '00000000-test-test-test-000000000000';
   const mockPayUrl = env.STRIPE_SECRET_KEY
-    ? `${(env.PUBLIC_SITE_URL || env.DASHBOARD_PUBLIC_URL || '').replace(/\/$/, '')}/api/payment/checkout?rid=rec_TEST`
+    ? `${(env.DASHBOARD_PUBLIC_URL || env.PUBLIC_SITE_URL || '').replace(/\/$/, '')}/api/payment/checkout?rid=rec_TEST`
     : '';
 
   let emailContent, smsContent;

@@ -59,8 +59,11 @@ export function getPremiumTierKey(env) {
 
 // Build the per-guest premium checkout URL.
 // Uses the existing /api/payment/checkout?rid=...&tier=... endpoint.
+// IMPORTANT: this endpoint lives on the DASHBOARD project (cannes-dash.pages.dev),
+// not on the public landing site (chateau-cannes.fraimit.com). So we prefer
+// DASHBOARD_PUBLIC_URL — only fall back to PUBLIC_SITE_URL if both are missing.
 export function buildPremiumCheckoutUrl(env, recordId) {
-  const base = (env.PUBLIC_SITE_URL || env.DASHBOARD_PUBLIC_URL || EVENT.dashboardUrl).replace(/\/$/, '');
+  const base = (env.DASHBOARD_PUBLIC_URL || env.PUBLIC_SITE_URL || EVENT.dashboardUrl).replace(/\/$/, '');
   const tier = getPremiumTierKey(env);
   return `${base}/api/payment/checkout?rid=${encodeURIComponent(recordId)}&tier=${encodeURIComponent(tier)}`;
 }
