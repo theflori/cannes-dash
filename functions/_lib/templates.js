@@ -772,28 +772,26 @@ export function renderRejectionSms({ name }) {
 
 // ============== LIST-CLOSED EMAIL (post-closing-time signups) ==============
 // Sent automatically to new signups that come in AFTER the guest list has
-// formally closed. Honest, gracious, premium tone — no scammy urgency.
-// Offers the Concierge tier as the only remaining path to attend.
+// formally closed. The Concierge offer + payment button leads — explanation
+// of why the standard list is closed comes after.
 
 export function renderListClosedEmail({ name, payUrl }) {
   const firstName = (name || '').split(' ')[0] || 'there';
-  const subject = 'Château Privé · 15 May 2026 — A note on your interest';
+  const subject = 'Château Privé · 15 May 2026 — A Concierge seat is still available';
   const hasPay = !!payUrl;
 
   const text = `Dear ${firstName},
 
 Thank you for reaching out about Château Privé on Friday, 15 May 2026.
 
-We have to be transparent with you: the standard guest list for this evening has formally closed. The room was curated over months, and at this point — only days from the event itself — we are no longer able to add new guests through the regular path.
+${hasPay ? `A small allocation of Concierge seats remains for this evening. These are reserved, confirmed spots — no waitlist, no uncertainty. €4,000.
 
-We know this is not the answer you were hoping for, and we genuinely appreciate the trust your application represents.
-
-${hasPay ? `For those who feel especially drawn to the evening, a small allocation of Concierge seats remains. These are reserved spots — confirmed, no waitlist, no uncertainty. They are priced at €4,000 to reflect what they include and to remain in keeping with the rest of the room.
-
-If this is for you:
+Reserve your seat:
 ${payUrl}
 
-If not, we completely understand — and we hope our paths cross at a future evening.` : `If your interest in joining us was specifically about this evening, please reply to this email and we'll be in touch directly about what may still be possible.`}
+` : ''}A note on context: the standard guest list for this evening has formally closed. The room was curated over months, and at this point — only days from the event — we are no longer adding new guests through the regular path. The Concierge allocation is the one path that remains open${hasPay ? '' : ', and we are nearly out of those as well'}.
+
+${hasPay ? `If a Concierge seat is not for you, we completely understand — and we hope our paths cross at a future evening.` : `If your interest was specifically about this evening, please reply directly and we'll be in touch about what may still be possible.`}
 
 With our regards,
 Château Privé
@@ -821,7 +819,7 @@ body { margin: 0; padding: 0; }
 </style>
 </head>
 <body style="margin:0;padding:0;background-color:#0F0C09;font-family:'EB Garamond',Georgia,serif;color:#F1ECDF">
-<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#0F0C09">A note on the guest list for Château Privé · 15 May 2026.</div>
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#0F0C09">A Concierge seat for Château Privé · 15 May 2026 — €4,000, confirmed, no waitlist.</div>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0F0C09" style="background-color:#0F0C09">
 <tr><td align="center" style="padding:40px 16px">
@@ -837,57 +835,70 @@ body { margin: 0; padding: 0; }
 </table>
 </td></tr>
 
-<tr><td class="px-48 py-72" align="center" style="padding:64px 48px 32px">
+<tr><td class="px-48 py-72" align="center" style="padding:56px 48px 24px">
 
-<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.65);letter-spacing:4px;text-transform:uppercase">Guest List · Closed</p>
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:#B8965A;letter-spacing:4px;text-transform:uppercase">Concierge Allocation</p>
 
-<h1 class="h1" style="margin:0 0 24px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:52px;line-height:1.05;color:#d4b884;letter-spacing:-0.5px">A note on<br>your interest.</h1>
+<h1 class="h1" style="margin:0 0 20px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:54px;line-height:1.05;color:#d4b884;letter-spacing:-0.5px">A seat is still<br>available.</h1>
 
-<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 32px">
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 28px">
 <tr><td width="60" height="1" bgcolor="#B8965A" style="background-color:#B8965A;line-height:1px;font-size:0">&nbsp;</td></tr>
 </table>
 
-<p style="margin:0 0 20px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:#F1ECDF;text-align:left">Dear ${escapeHtml(firstName)},</p>
-
-<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.82);text-align:left">
-Thank you for reaching out about <span style="color:#F1ECDF">Château Privé</span> — a private evening during the 79<sup style="font-size:11px">th</sup> Cannes Film Festival on <span style="color:#F1ECDF">Friday, 15 May 2026</span>.
-</p>
-
-<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
-We have to be transparent with you: the standard guest list for this evening has formally <em style="font-style:italic;color:#F1ECDF">closed</em>. The room was curated over months, and at this point — only days from the event itself — we are no longer able to add new guests through the regular path.
-</p>
-
-<p style="margin:0 0 28px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
-We know this is not the answer you were hoping for, and we genuinely appreciate the trust your application represents.
-</p>
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:#F1ECDF;text-align:left">Dear ${escapeHtml(firstName)},</p>
 
 ${hasPay ? `
-<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 24px">
-<tr><td width="100" height="1" bgcolor="rgba(184,150,90,0.4)" style="background-color:rgba(184,150,90,0.4);line-height:1px;font-size:0">&nbsp;</td></tr>
-</table>
-
-<p style="margin:0 0 12px;font-family:'EB Garamond',Georgia,serif;font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#B8965A;text-align:center">Concierge Seats Remain</p>
-
-<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.82);text-align:left">
-For those who feel especially drawn to the evening, a small allocation of <span style="color:#d4b884">Concierge seats</span> remains. These are reserved spots — confirmed, no waitlist, no uncertainty. They are priced at <span style="color:#F1ECDF">€4,000</span> to reflect what they include and to remain in keeping with the rest of the room.
+<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.85);text-align:left">
+Thank you for reaching out about <span style="color:#F1ECDF">Château Privé</span> on Friday, 15 May 2026. A small allocation of <span style="color:#d4b884">Concierge seats</span> remains — reserved, confirmed, no waitlist, no uncertainty.
 </p>
 
-<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 12px">
-<tr><td align="center" bgcolor="#B8965A" style="background-color:#B8965A;border-radius:2px">
-<a href="${payUrl}" style="display:inline-block;padding:16px 38px;font-family:'EB Garamond',Georgia,serif;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:#0F0C09;text-decoration:none;font-weight:500">Reserve a Concierge Seat</a>
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 12px">
+<tr><td align="center" style="padding:6px 0">
+<span style="font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:38px;color:#F1ECDF;letter-spacing:-0.5px">€4,000</span>
+</td></tr>
+<tr><td align="center" style="padding:0 0 18px">
+<span style="font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase">One Concierge seat</span>
 </td></tr>
 </table>
 
-<p style="margin:18px 0 0;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.65;color:rgba(241,236,223,0.55);text-align:center;font-style:italic">If not, we completely understand — and we hope our paths cross at a future evening.</p>
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 16px">
+<tr><td align="center" bgcolor="#B8965A" style="background-color:#B8965A;border-radius:2px">
+<a href="${payUrl}" style="display:inline-block;padding:18px 44px;font-family:'EB Garamond',Georgia,serif;font-size:15px;letter-spacing:3px;text-transform:uppercase;color:#0F0C09;text-decoration:none;font-weight:500">Reserve Your Seat</a>
+</td></tr>
+</table>
+
+<p style="margin:8px 0 28px;font-family:'EB Garamond',Georgia,serif;font-size:13px;line-height:1.65;color:rgba(241,236,223,0.55);text-align:center;font-style:italic">Secure checkout via Stripe · Confirmation sent immediately</p>
+
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 24px">
+<tr><td width="40" height="1" bgcolor="rgba(241,236,223,0.15)" style="background-color:rgba(241,236,223,0.15);line-height:1px;font-size:0">&nbsp;</td></tr>
+</table>
+
+<p style="margin:0 0 16px;font-family:'EB Garamond',Georgia,serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(241,236,223,0.55);text-align:left">A note on context</p>
+
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:15px;line-height:1.7;color:rgba(241,236,223,0.72);text-align:left">
+The standard guest list for this evening has formally <em style="font-style:italic;color:rgba(241,236,223,0.9)">closed</em>. The room was curated over months, and at this point — only days from the event — we are no longer adding new guests through the regular path. The Concierge allocation is the one path that remains open.
+</p>
+
+<p style="margin:0 0 8px;font-family:'EB Garamond',Georgia,serif;font-size:15px;line-height:1.7;color:rgba(241,236,223,0.65);text-align:left;font-style:italic">
+If a Concierge seat is not for you, we completely understand — and we hope our paths cross at a future evening.
+</p>
 ` : `
-<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
-If your interest in joining us was specifically about this evening, please reply to this email and we'll be in touch directly about what may still be possible.
+<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.82);text-align:left">
+Thank you for reaching out about <span style="color:#F1ECDF">Château Privé</span> on Friday, 15 May 2026.
+</p>
+
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:16px;line-height:1.7;color:rgba(241,236,223,0.78);text-align:left">
+The standard guest list for this evening has formally <em style="font-style:italic;color:#F1ECDF">closed</em>. The room was curated over months, and at this point — only days from the event — we are no longer adding new guests through the regular path.
+</p>
+
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:16px;line-height:1.7;color:rgba(241,236,223,0.78);text-align:left">
+If your interest was specifically about this evening, please reply directly to this email and we'll be in touch about what may still be possible.
 </p>
 `}
 
 </td></tr>
 
-<tr><td class="px-48" align="center" style="padding:32px 48px 48px;border-top:1px solid rgba(241,236,223,0.08)">
+<tr><td class="px-48" align="center" style="padding:24px 48px 48px;border-top:1px solid rgba(241,236,223,0.08)">
 <p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:15px;color:rgba(241,236,223,0.6)">With our regards,<br><span style="color:#d4b884">Château Privé</span></p>
 </td></tr>
 
