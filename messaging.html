@@ -312,6 +312,8 @@
         <button class="msg-pill" data-filter="Waitlist">Waitlist <span class="count" id="cntWait">—</span></button>
         <button class="msg-pill" data-filter="Approved">Approved <span class="count" id="cntApproved">—</span></button>
         <button class="msg-pill" data-filter="Declined">Declined <span class="count" id="cntDeclined">—</span></button>
+        <button class="msg-pill" data-filter="checkedin" style="color:#1f7a3c" title="Show guests who have already checked in at the event">✓ Checked In <span class="count" id="cntCheckedIn">—</span></button>
+        <button class="msg-pill" data-filter="notcheckedin" title="Approved guests who haven't shown up yet">Not Checked In <span class="count" id="cntNotCheckedIn">—</span></button>
         <button class="msg-pill pill-issues" data-filter="issues" title="Show only guests where the last send had problems">⚠ Issues <span class="count" id="cntIssues">—</span></button>
       </div>
 
@@ -1070,10 +1072,14 @@ async function loadGuests() {
 function renderCounts() {
   const counts = { all: messagingGuests.length, pending: 0, Listed: 0, 'Semi Approved': 0, Waitlist: 0, Approved: 0, Declined: 0 };
   let issuesCount = 0;
+  let checkedInCount = 0;
+  let notCheckedInCount = 0;
   for (const g of messagingGuests) {
     if (!g.messagingStatus) counts.pending++;
     else if (counts[g.messagingStatus] !== undefined) counts[g.messagingStatus]++;
     if (g.lastSendErrorLevel === 'error' || g.lastSendErrorLevel === 'warning') issuesCount++;
+    if (g.checkedIn) checkedInCount++;
+    else if (g.messagingStatus === 'Approved') notCheckedInCount++;
   }
   document.getElementById('cntAll').textContent = counts.all;
   document.getElementById('cntPending').textContent = counts.pending;
@@ -1082,12 +1088,15 @@ function renderCounts() {
   document.getElementById('cntWait').textContent = counts.Waitlist;
   document.getElementById('cntApproved').textContent = counts.Approved;
   document.getElementById('cntDeclined').textContent = counts.Declined;
+  document.getElementById('cntCheckedIn').textContent = checkedInCount;
+  document.getElementById('cntNotCheckedIn').textContent = notCheckedInCount;
   document.getElementById('cntIssues').textContent = issuesCount;
 
   document.getElementById('headerMeta').textContent =
     `${counts.all} guest${counts.all !== 1 ? 's' : ''} total` +
     (counts.pending > 0 ? ` · ${counts.pending} pending` : '') +
     (counts.Approved > 0 ? ` · ${counts.Approved} approved` : '') +
+    (checkedInCount > 0 ? ` · ${checkedInCount} checked in` : '') +
     (issuesCount > 0 ? ` · ⚠ ${issuesCount} with issues` : '');
 
   // Broadcast section
@@ -1133,6 +1142,11 @@ function render() {
   } else if (currentFilter === 'issues') {
     // Show anyone with a tracked error or warning on their last send
     rows = messagingGuests.filter(g => g.lastSendErrorLevel === 'error' || g.lastSendErrorLevel === 'warning');
+  } else if (currentFilter === 'checkedin') {
+    rows = messagingGuests.filter(g => g.checkedIn);
+  } else if (currentFilter === 'notcheckedin') {
+    // Approved-and-not-checked-in is the meaningful subset (the rest haven't been admitted)
+    rows = messagingGuests.filter(g => g.messagingStatus === 'Approved' && !g.checkedIn);
   } else {
     rows = messagingGuests.filter(g => g.messagingStatus === currentFilter);
   }

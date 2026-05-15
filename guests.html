@@ -61,6 +61,7 @@
         <div class="stat-card stat-clickable" data-filter-invite="Approved" title="Click to filter — approved guests" style="cursor:pointer"><span class="stat-label">Approved</span><span class="stat-value gold" id="stConfirmed">—</span><span class="stat-meta">confirmed + sent</span></div>
         <div class="stat-card stat-clickable" data-filter-invite="Waitlist" title="Click to filter — waitlisted guests" style="cursor:pointer"><span class="stat-label">Waitlisted</span><span class="stat-value" id="stWaitlist">—</span></div>
         <div class="stat-card stat-clickable" data-filter-invite="Declined" title="Click to filter — declined guests" style="cursor:pointer"><span class="stat-label">Declined</span><span class="stat-value" id="stDeclined">—</span></div>
+        <div class="stat-card stat-clickable" data-filter-checkin="in" title="Click to filter — guests checked in at the event" style="cursor:pointer"><span class="stat-label">Checked In</span><span class="stat-value" style="color:#1f7a3c" id="stCheckedIn">—</span><span class="stat-meta" id="stCheckedInRatio">of approved</span></div>
       </div>
 
       <!-- FILTERS -->
@@ -91,6 +92,11 @@
           <option value="Tier 2">Tier 2</option>
           <option value="Tier 3">Tier 3</option>
           <option value="__none__">— Unset —</option>
+        </select>
+        <select class="input" id="checkinFilter" style="width:auto" title="Filter by check-in status">
+          <option value="">All check-in</option>
+          <option value="in">Checked in ✓</option>
+          <option value="out">Not checked in</option>
         </select>
         <input type="number" class="input" id="minFollowers" placeholder="Min followers" min="0" style="width:140px">
         <select class="input" id="privacyFilter" style="width:auto" title="Filter by Instagram profile privacy">
@@ -285,7 +291,7 @@ const STATUS_PILL = {
 let allGuests = [];
 let sortKey = 'createdTime';
 let sortDir = 'desc';
-let filters = { search: '', status: '', invite: '', tag: '', importance: '', minFollowers: 0, privacy: '' };
+let filters = { search: '', status: '', invite: '', tag: '', importance: '', checkin: '', minFollowers: 0, privacy: '' };
 let selectedIds = new Set();
 
 // ============== INIT ==============
@@ -339,15 +345,19 @@ function renderStats() {
   const waitlisted = allGuests.filter(g => g.messagingStatus === 'Waitlist').length;
   const declined = allGuests.filter(g => g.messagingStatus === 'Declined').length;
   const pending = total - approved - waitlisted - declined;
+  const checkedIn = allGuests.filter(g => g.checkedIn).length;
 
   document.getElementById('stTotal').textContent = total;
   document.getElementById('stPending').textContent = pending;
   document.getElementById('stConfirmed').textContent = approved;
   document.getElementById('stWaitlist').textContent = waitlisted;
   document.getElementById('stDeclined').textContent = declined;
+  document.getElementById('stCheckedIn').textContent = checkedIn;
+  const checkedInRatioEl = document.getElementById('stCheckedInRatio');
+  if (checkedInRatioEl) checkedInRatioEl.textContent = approved > 0 ? `${checkedIn} / ${approved} approved` : 'no approved yet';
 
   document.getElementById('headerStats').textContent =
-    `${total} guests · ${pending} pending · ${approved} approved · ${waitlisted} waitlisted`;
+    `${total} guests · ${pending} pending · ${approved} approved · ${waitlisted} waitlisted · ${checkedIn} checked in`;
 }
 
 // ============== TAG FILTER POPULATION ==============
@@ -602,6 +612,8 @@ function applyFilters(list) {
         if (g.importance !== filters.importance) return false;
       }
     }
+    if (filters.checkin === 'in' && !g.checkedIn) return false;
+    if (filters.checkin === 'out' && g.checkedIn) return false;
     if (filters.minFollowers > 0) {
       if (g.igFollowers === null || g.igFollowers < filters.minFollowers) return false;
     }
@@ -694,12 +706,18 @@ function bindEvents() {
     filters.invite = e.target.value;
     render();
   });
-  // Clickable stat cards — apply the corresponding invite filter
+  // Clickable stat cards — apply the corresponding invite or check-in filter
   document.querySelectorAll('.stat-clickable').forEach(card => {
     card.addEventListener('click', () => {
-      const f = card.dataset.filterInvite;
-      filters.invite = f;
-      document.getElementById('inviteFilter').value = f;
+      if (card.dataset.filterCheckin) {
+        filters.checkin = card.dataset.filterCheckin;
+        const sel = document.getElementById('checkinFilter');
+        if (sel) sel.value = filters.checkin;
+      } else {
+        const f = card.dataset.filterInvite;
+        filters.invite = f;
+        document.getElementById('inviteFilter').value = f;
+      }
       render();
       // Scroll the table into view on mobile
       document.querySelector('.bulk-bar')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -711,6 +729,10 @@ function bindEvents() {
   });
   document.getElementById('importanceFilter').addEventListener('change', e => {
     filters.importance = e.target.value;
+    render();
+  });
+  document.getElementById('checkinFilter').addEventListener('change', e => {
+    filters.checkin = e.target.value;
     render();
   });
   // Select-N quick action — selects the first N visible guests that aren't
@@ -752,13 +774,14 @@ function bindEvents() {
     render();
   });
   document.getElementById('resetFiltersBtn').addEventListener('click', () => {
-    filters = { search: '', status: '', invite: '', tag: '', importance: '', minFollowers: 0, privacy: '' };
+    filters = { search: '', status: '', invite: '', tag: '', importance: '', checkin: '', minFollowers: 0, privacy: '' };
     sortKey = 'createdTime'; sortDir = 'desc';
     document.getElementById('searchInput').value = '';
     document.getElementById('statusFilter').value = '';
     document.getElementById('inviteFilter').value = '';
     document.getElementById('tagFilter').value = '';
     document.getElementById('importanceFilter').value = '';
+    const _cf = document.getElementById('checkinFilter'); if (_cf) _cf.value = '';
     document.getElementById('minFollowers').value = '';
     document.getElementById('privacyFilter').value = '';
     document.getElementById('sortPreset').value = 'createdTime:desc';
