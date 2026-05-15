@@ -70,12 +70,16 @@ export async function onRequestPost(context) {
   if (!declineCode) declineCode = await generateUniqueCode(env, 'Decline Code');
   if (!plusOneCode) plusOneCode = await generateUniqueCode(env, 'Plus One Code');
 
-  // Patch Airtable
+  // Patch Airtable.
+  // Paid guests get the highest importance tier (VIP/Car) — they get priority
+  // entry handling, reserved seating, and driver/car coordination.
   await airtablePatch(env, recordId, {
     'Has Paid': true,
     'Paid At': new Date().toISOString(),
     'Stripe Session ID': sessionId,
     'Messaging Status': 'Approved',
+    'Status': 'Approved',
+    'Importance': 'VIP/Car',
     'Decline Code': declineCode,
     'Plus One Code': plusOneCode,
     'Last Message Sent At': new Date().toISOString()
@@ -120,7 +124,10 @@ export async function onRequestPost(context) {
       const qrMail = render24hReminderEmail({ name, declineCode, qrCodeImageUrl });
       await sendEmail(env, { to: email, subject: qrMail.subject, html: qrMail.html, text: qrMail.text });
       qrEmailOk = true;
-      await airtablePatch(env, recordId, { 'QR Sent At': new Date().toISOString() });
+      await airtablePatch(env, recordId, {
+        'QR Sent At': new Date().toISOString(),
+        'Status': 'Approved Ticket sent'
+      });
     } catch (err) {
       console.error('[stripe webhook] QR email failed for', recordId, err.message);
       // Non-fatal — staff can resend manually from the dashboard.

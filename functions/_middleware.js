@@ -18,7 +18,7 @@ export async function onRequest(context) {
     }
 
     // Payment routes are public — Stripe servers / email recipients hit these without a session
-    if (url.pathname === '/api/payment/webhook' || url.pathname === '/api/payment/checkout' || url.pathname === '/api/payment/direct-checkout') {
+    if (url.pathname === '/api/payment/webhook' || url.pathname === '/api/payment/checkout' || url.pathname === '/api/payment/direct-checkout' || url.pathname === '/api/rsvp/submit') {
       return next();
     }
 
