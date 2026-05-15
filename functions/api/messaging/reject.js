@@ -95,6 +95,7 @@ export async function onRequestPost(context) {
       // Update status to Declined regardless of channel results
       await airtablePatch(env, recordId, {
         'Messaging Status': 'Declined',
+        'Status': 'Rejected',
         'Last Message Sent At': new Date().toISOString()
       });
       results.rejected++;

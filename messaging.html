@@ -270,6 +270,14 @@
           <option value="private">Private only</option>
           <option value="unknown">Unknown</option>
         </select>
+        <select class="input" id="importanceFilter" style="width:auto" title="Filter by Importance">
+          <option value="">All importance</option>
+          <option value="VIP/Car">VIP/Car</option>
+          <option value="Tier 1">Tier 1</option>
+          <option value="Tier 2">Tier 2</option>
+          <option value="Tier 3">Tier 3</option>
+          <option value="__none__">— Unset —</option>
+        </select>
         <select class="input" id="sortPreset" style="width:auto">
           <option value="default">Default sort</option>
           <option value="createdTime:desc">Newest first</option>
@@ -282,6 +290,13 @@
           <option value="privacy:desc">Public first</option>
         </select>
         <button class="btn btn-ghost btn-sm" id="resetFiltersBtn">Reset</button>
+        <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:rgba(184,150,90,0.1);border:1px solid rgba(184,150,90,0.3);border-radius:4px" title="Quickly select the first N visible guests for batch send">
+          <span style="font-size:11px;color:#6b6b66;font-weight:500">SELECT</span>
+          <button class="btn btn-ghost btn-sm" data-msg-select-n="10" style="padding:3px 9px;min-width:auto">10</button>
+          <button class="btn btn-ghost btn-sm" data-msg-select-n="20" style="padding:3px 9px;min-width:auto">20</button>
+          <button class="btn btn-ghost btn-sm" data-msg-select-n="50" style="padding:3px 9px;min-width:auto">50</button>
+          <button class="btn btn-ghost btn-sm" data-msg-select-n="100" style="padding:3px 9px;min-width:auto">100</button>
+        </div>
         <button class="btn btn-ghost btn-sm" id="exportCsvBtn" title="Export visible invites to CSV (respects filter pill + search)" style="margin-left:auto">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:5px;vertical-align:-2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export CSV <span id="exportCount" style="opacity:0.6;margin-left:4px"></span>
@@ -345,6 +360,14 @@
             <option value="Approved">Approved</option>
             <option value="Declined">Declined</option>
             <option value="__remove__">— Remove from invites</option>
+          </select>
+          <select class="input" id="bulkImportance" style="width:auto;background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.25);font-size:12px;padding:6px 10px" title="Set Importance for all selected">
+            <option value="">Set importance…</option>
+            <option value="VIP/Car">VIP/Car</option>
+            <option value="Tier 1">Tier 1</option>
+            <option value="Tier 2">Tier 2</option>
+            <option value="Tier 3">Tier 3</option>
+            <option value="__clear__">— Clear —</option>
           </select>
           <button class="btn" id="bulkSendOnly" title="Send messages based on each guest's current Messaging Status">Resend</button>
           <button class="btn" id="bulkWaitlist" title="Set status to Waitlist + send waitlist email and SMS" style="border-color:#D4A744;color:#D4A744">Waitlist &amp; send</button>
@@ -542,6 +565,7 @@ let searchQuery = '';
 let privacyFilter = '';
 let followersFilter = '';
 let minFollowers = 0;
+let importanceFilter = '';
 let sortKey = 'default';  // 'default' = Approved-first stack-order; otherwise column name
 let sortDir = 'asc';
 let selectedIds = new Set();
@@ -577,6 +601,7 @@ function bindCsvExport() {
       { key: 'referredBy', label: 'Referred By' },
       { key: 'messagingStatus', label: 'Messaging Status', format: v => v || 'Pending' },
       { key: 'tags', label: 'Tags' },
+      { key: 'importance', label: 'Importance' },
       { key: 'hasPaid', label: 'Paid', format: v => v ? 'yes' : 'no' },
       { key: 'paidAt', label: 'Paid At', format: formatDate },
       { key: 'qrSentAt', label: 'QR Sent At', format: formatDate },
@@ -1139,6 +1164,10 @@ function render() {
     rows = rows.filter(g => g.igFollowers !== null && g.igFollowers !== undefined && g.igFollowers >= minFollowers);
   }
 
+  // Importance filter
+  if (importanceFilter === '__none__') rows = rows.filter(g => !g.importance);
+  else if (importanceFilter) rows = rows.filter(g => g.importance === importanceFilter);
+
   // Sort: respect user-clicked column or sortPreset, otherwise default = Approved first then name
   rows = [...rows].sort((a, b) => {
     if (sortKey === 'default') {
@@ -1428,7 +1457,7 @@ function rowHtml(g) {
           <div class="name-text">
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
               ${errorDot}
-              ${isAListGuest(g) ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${renderFitIndicator(g)}${renderAllowanceChip(g)}
+              ${isAListGuest(g) ? '<span class="alist-star" title="A-List guest" style="display:inline-block;margin-right:4px;color:#b8965a;font-size:14px;line-height:1">★</span>' : ''}<span style="font-weight:500;color:var(--ink)">${escapeHtml(g.name) || '—'}</span>${g.importance ? '<span title="Importance: ' + escapeAttr(g.importance) + '" style="' + importancePillStyle(g.importance) + ';display:inline-flex;align-items:center;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;margin-left:5px">' + escapeHtml(g.importance) + '</span>' : ''}${renderFitIndicator(g)}${renderAllowanceChip(g)}
               ${g.qrSentAt ? '<span title="QR + event details sent" style="display:inline-flex;align-items:center;padding:1px 6px;background:rgba(31,122,60,0.12);color:#1f7a3c;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:0.3px">QR ✓</span>' : ''}
               ${g.checkedIn ? '<span title="Checked in (' + g.checkInCount + ' scan' + (g.checkInCount !== 1 ? 's' : '') + ')" style="display:inline-flex;align-items:center;padding:1px 6px;background:#1f7a3c;color:#fff;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:0.3px">IN</span>' : ''}
               ${g.plusOneOfName ? '<span class="plus-one-chip" title="Plus-one of ' + escapeAttr(g.plusOneOfName) + '" style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;background:rgba(184,150,90,0.12);color:#8a6c2e;border-radius:10px;font-size:10px;font-weight:500;letter-spacing:0.3px;white-space:nowrap">+1 · ' + escapeHtml(g.plusOneOfName) + '</span>' : ''}
@@ -1492,6 +1521,36 @@ function bindFilters() {
     render();
   });
 
+  // Importance filter
+  document.getElementById('importanceFilter').addEventListener('change', e => {
+    importanceFilter = e.target.value;
+    render();
+  });
+
+  // Select-N quick action — selects the first N visible (filtered+sorted) guests
+  document.querySelectorAll('[data-msg-select-n]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const n = parseInt(btn.dataset.msgSelectN) || 0;
+      if (n <= 0) return;
+      const visible = lastRenderedRows || [];
+      const firstN = visible.slice(0, n).map(g => g.id);
+      const alreadyAll = firstN.length === n && firstN.every(id => selectedIds.has(id));
+      if (alreadyAll) {
+        const remaining = visible.slice(n).filter(g => !selectedIds.has(g.id));
+        remaining.slice(0, n).forEach(g => selectedIds.add(g.id));
+      } else {
+        firstN.forEach(id => selectedIds.add(id));
+      }
+      render();
+      // Sync row checkboxes after re-render
+      document.querySelectorAll('input.row-check').forEach(cb => {
+        cb.checked = selectedIds.has(cb.dataset.id || cb.value);
+      });
+      updateBulkBar();
+      showToast(`Selected ${Math.min(n, visible.length)} (${selectedIds.size} total)`, 'success');
+    });
+  });
+
   // Sort preset dropdown
   document.getElementById('sortPreset').addEventListener('change', e => {
     const val = e.target.value;
@@ -1510,11 +1569,13 @@ function bindFilters() {
     privacyFilter = '';
     followersFilter = '';
     minFollowers = 0;
+    importanceFilter = '';
     sortKey = 'default'; sortDir = 'asc';
     document.getElementById('searchInput').value = '';
     document.getElementById('privacyFilter').value = '';
     document.getElementById('followersFilter').value = '';
     document.getElementById('minFollowers').value = '';
+    document.getElementById('importanceFilter').value = '';
     document.getElementById('sortPreset').value = 'default';
     render();
   });
@@ -1933,6 +1994,37 @@ function bindBulkBar() {
       newStatus = value;
     }
     await setStatus(ids, newStatus);
+  });
+  document.getElementById('bulkImportance').addEventListener('change', async e => {
+    const value = e.target.value;
+    e.target.selectedIndex = 0;
+    if (!value) return;
+    const visibleIds = new Set(lastRenderedRows.map(g => g.id));
+    const ids = Array.from(selectedIds).filter(id => visibleIds.has(id));
+    if (ids.length === 0) return;
+    const importance = value === '__clear__' ? '' : value;
+    showToast(`Updating ${ids.length} guests…`, '');
+    try {
+      const res = await fetch('/api/update-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordIds: ids, fields: { Importance: importance || null } })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({}));
+        throw new Error(err.error || 'Bulk update failed');
+      }
+      const data = await res.json();
+      // Update local state for instant feedback
+      for (const id of ids) {
+        const g = messagingGuests.find(x => x.id === id);
+        if (g) g.importance = importance;
+      }
+      render();
+      showToast(`${data.updated} guests → Importance ${importance || 'cleared'}`, 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   });
   document.getElementById('bulkSendOnly').addEventListener('click', async () => {
     const visibleIds = new Set(lastRenderedRows.map(g => g.id));

@@ -126,6 +126,7 @@ export async function onRequestPost(context) {
       } else {
         await airtablePatch(env, recordId, {
           'Messaging Status': 'Waitlist',
+          'Status': 'Waitlisted',
           'Decline Code': declineCode,
           'Last Message Sent At': new Date().toISOString()
         });

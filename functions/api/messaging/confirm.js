@@ -101,6 +101,7 @@ export async function onRequestPost(context) {
       // Save codes + status + timestamp
       const patch = {
         'Messaging Status': 'Approved',
+        'Status': 'Approved',
         'Decline Code': declineCode,
         'Plus One Code': plusOneCode,
         'Last Message Sent At': new Date().toISOString()
@@ -118,6 +119,7 @@ export async function onRequestPost(context) {
           qrEmailOk = true;
           results.qrEmailSent++;
           patch['QR Sent At'] = new Date().toISOString();
+          patch['Status'] = 'Approved Ticket sent';
         } catch (err) {
           console.error(`QR email failed for ${recordId}:`, err.message);
           // Non-fatal — confirmation still went out, staff can manually resend QR
