@@ -26,6 +26,45 @@ export const EVENT = {
   dashboardUrl: 'https://cannes-dash.pages.dev'
 };
 
+// ============== LIST-CLOSED / PREMIUM UPGRADE CONFIG ==============
+// Reads from Cloudflare Env Variables. Set in Pages → Settings → Env Variables:
+//
+//   LIST_CLOSED_AT       — ISO datetime, e.g. "2026-05-15T14:00:00+02:00"
+//                          (when set + in the past, list is considered CLOSED)
+//   PREMIUM_PRICE_EUR    — optional, default 4000
+//   PREMIUM_TIER_KEY     — optional, default "4000" (matches checkout tiers)
+//
+// To activate: set LIST_CLOSED_AT in Cloudflare. To deactivate: unset or push it to the future.
+
+export function getListClosingTime(env) {
+  if (!env.LIST_CLOSED_AT) return null;
+  const t = new Date(env.LIST_CLOSED_AT);
+  if (isNaN(t.getTime())) return null;
+  return t;
+}
+
+export function isListClosed(env, now) {
+  const t = getListClosingTime(env);
+  if (!t) return false;
+  return (now || new Date()) >= t;
+}
+
+export function getPremiumPriceEur(env) {
+  return parseInt(env.PREMIUM_PRICE_EUR || '4000', 10);
+}
+
+export function getPremiumTierKey(env) {
+  return env.PREMIUM_TIER_KEY || '4000';
+}
+
+// Build the per-guest premium checkout URL.
+// Uses the existing /api/payment/checkout?rid=...&tier=... endpoint.
+export function buildPremiumCheckoutUrl(env, recordId) {
+  const base = (env.PUBLIC_SITE_URL || env.DASHBOARD_PUBLIC_URL || EVENT.dashboardUrl).replace(/\/$/, '');
+  const tier = getPremiumTierKey(env);
+  return `${base}/api/payment/checkout?rid=${encodeURIComponent(recordId)}&tier=${encodeURIComponent(tier)}`;
+}
+
 // Helper to get the dashboard URL with fallback chain
 export function getDashboardUrl(env) {
   return (env.PUBLIC_SITE_URL || env.DASHBOARD_PUBLIC_URL || EVENT.dashboardUrl).replace(/\/$/, '');

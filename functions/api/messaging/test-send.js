@@ -10,7 +10,8 @@ import { sendEmail, sendSms, normalizePhone, jsonError, jsonOk } from '../../_li
 import {
   renderConfirmationEmail, renderConfirmationSms,
   renderWaitlistEmail, renderWaitlistSms,
-  render24hReminderEmail, render24hReminderSms
+  render24hReminderEmail, render24hReminderSms,
+  renderListClosedEmail
 } from '../../_lib/templates.js';
 
 function buildQrImageUrl(qrCode) {
@@ -31,8 +32,8 @@ export async function onRequestPost(context) {
   const email = (body.email || '').trim();
   const phone = body.phone ? normalizePhone(body.phone) : null;
 
-  if (!['confirmation', 'waitlist', 'reminder'].includes(type)) {
-    return jsonError("type must be 'confirmation', 'waitlist', or 'reminder'", 400);
+  if (!['confirmation', 'waitlist', 'reminder', 'list-closed'].includes(type)) {
+    return jsonError("type must be 'confirmation', 'waitlist', 'reminder', or 'list-closed'", 400);
   }
   if (!email) return jsonError('Missing email', 400);
 
@@ -61,6 +62,12 @@ export async function onRequestPost(context) {
         payUrl: mockPayUrl
       });
       smsContent = renderWaitlistSms({ name: mockName, declineCode: mockDeclineCode });
+    } else if (type === 'list-closed') {
+      emailContent = renderListClosedEmail({
+        name: mockName,
+        payUrl: mockPayUrl
+      });
+      smsContent = null; // no SMS for list-closed (email-only)
     } else { // reminder
       emailContent = render24hReminderEmail({
         name: mockName,
@@ -85,7 +92,7 @@ export async function onRequestPost(context) {
     result.errors.push({ channel: 'email', message: err.message });
   }
 
-  if (phone && env.TWILIO_ACCOUNT_SID) {
+  if (smsContent && phone && env.TWILIO_ACCOUNT_SID) {
     try {
       await sendSms(env, { to: phone, body: `[TEST] ${smsContent}` });
       result.smsSent = true;

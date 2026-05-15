@@ -769,3 +769,132 @@ export function renderRejectionSms({ name }) {
   const firstName = (name || '').split(' ')[0] || '';
   return `${firstName ? firstName + ', ' : ''}unfortunately we can no longer hold your spot for Château Privé on 15 May — the guest list filled faster than we could manage. We're sorry. Full details by email.`;
 }
+
+// ============== LIST-CLOSED EMAIL (post-closing-time signups) ==============
+// Sent automatically to new signups that come in AFTER the guest list has
+// formally closed. Honest, gracious, premium tone — no scammy urgency.
+// Offers the Concierge tier as the only remaining path to attend.
+
+export function renderListClosedEmail({ name, payUrl }) {
+  const firstName = (name || '').split(' ')[0] || 'there';
+  const subject = 'Château Privé · 15 May 2026 — A note on your interest';
+  const hasPay = !!payUrl;
+
+  const text = `Dear ${firstName},
+
+Thank you for reaching out about Château Privé on Friday, 15 May 2026.
+
+We have to be transparent with you: the standard guest list for this evening has formally closed. The room was curated over months, and at this point — only days from the event itself — we are no longer able to add new guests through the regular path.
+
+We know this is not the answer you were hoping for, and we genuinely appreciate the trust your application represents.
+
+${hasPay ? `For those who feel especially drawn to the evening, a small allocation of Concierge seats remains. These are reserved spots — confirmed, no waitlist, no uncertainty. They are priced at €4,000 to reflect what they include and to remain in keeping with the rest of the room.
+
+If this is for you:
+${payUrl}
+
+If not, we completely understand — and we hope our paths cross at a future evening.` : `If your interest in joining us was specifically about this evening, please reply to this email and we'll be in touch directly about what may still be possible.`}
+
+With our regards,
+Château Privé
+`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>${escapeHtml(subject)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@media only screen and (max-width: 620px) {
+  .container { width: 100% !important; }
+  .px-48 { padding-left: 28px !important; padding-right: 28px !important; }
+  .py-72 { padding-top: 48px !important; padding-bottom: 40px !important; }
+  .h1 { font-size: 46px !important; }
+}
+body { margin: 0; padding: 0; }
+</style>
+</head>
+<body style="margin:0;padding:0;background-color:#0F0C09;font-family:'EB Garamond',Georgia,serif;color:#F1ECDF">
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#0F0C09">A note on the guest list for Château Privé · 15 May 2026.</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0F0C09" style="background-color:#0F0C09">
+<tr><td align="center" style="padding:40px 16px">
+
+<table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:#1A1612">
+
+<tr><td align="center" class="px-48" style="padding:24px 48px;border-bottom:1px solid rgba(241,236,223,0.12)">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" style="font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:400;font-size:18px;color:#d4b884">Château Privé</td>
+<td align="right" style="font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.55);letter-spacing:3px;text-transform:uppercase">Cannes &middot; MMXXVI</td>
+</tr>
+</table>
+</td></tr>
+
+<tr><td class="px-48 py-72" align="center" style="padding:64px 48px 32px">
+
+<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:11px;color:rgba(241,236,223,0.65);letter-spacing:4px;text-transform:uppercase">Guest List · Closed</p>
+
+<h1 class="h1" style="margin:0 0 24px;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-weight:300;font-size:52px;line-height:1.05;color:#d4b884;letter-spacing:-0.5px">A note on<br>your interest.</h1>
+
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 32px">
+<tr><td width="60" height="1" bgcolor="#B8965A" style="background-color:#B8965A;line-height:1px;font-size:0">&nbsp;</td></tr>
+</table>
+
+<p style="margin:0 0 20px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:#F1ECDF;text-align:left">Dear ${escapeHtml(firstName)},</p>
+
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.82);text-align:left">
+Thank you for reaching out about <span style="color:#F1ECDF">Château Privé</span> — a private evening during the 79<sup style="font-size:11px">th</sup> Cannes Film Festival on <span style="color:#F1ECDF">Friday, 15 May 2026</span>.
+</p>
+
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
+We have to be transparent with you: the standard guest list for this evening has formally <em style="font-style:italic;color:#F1ECDF">closed</em>. The room was curated over months, and at this point — only days from the event itself — we are no longer able to add new guests through the regular path.
+</p>
+
+<p style="margin:0 0 28px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
+We know this is not the answer you were hoping for, and we genuinely appreciate the trust your application represents.
+</p>
+
+${hasPay ? `
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 24px">
+<tr><td width="100" height="1" bgcolor="rgba(184,150,90,0.4)" style="background-color:rgba(184,150,90,0.4);line-height:1px;font-size:0">&nbsp;</td></tr>
+</table>
+
+<p style="margin:0 0 12px;font-family:'EB Garamond',Georgia,serif;font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#B8965A;text-align:center">Concierge Seats Remain</p>
+
+<p style="margin:0 0 22px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.82);text-align:left">
+For those who feel especially drawn to the evening, a small allocation of <span style="color:#d4b884">Concierge seats</span> remains. These are reserved spots — confirmed, no waitlist, no uncertainty. They are priced at <span style="color:#F1ECDF">€4,000</span> to reflect what they include and to remain in keeping with the rest of the room.
+</p>
+
+<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:24px auto 12px">
+<tr><td align="center" bgcolor="#B8965A" style="background-color:#B8965A;border-radius:2px">
+<a href="${payUrl}" style="display:inline-block;padding:16px 38px;font-family:'EB Garamond',Georgia,serif;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:#0F0C09;text-decoration:none;font-weight:500">Reserve a Concierge Seat</a>
+</td></tr>
+</table>
+
+<p style="margin:18px 0 0;font-family:'EB Garamond',Georgia,serif;font-size:14px;line-height:1.65;color:rgba(241,236,223,0.55);text-align:center;font-style:italic">If not, we completely understand — and we hope our paths cross at a future evening.</p>
+` : `
+<p style="margin:0 0 18px;font-family:'EB Garamond',Georgia,serif;font-size:17px;line-height:1.65;color:rgba(241,236,223,0.78);text-align:left">
+If your interest in joining us was specifically about this evening, please reply to this email and we'll be in touch directly about what may still be possible.
+</p>
+`}
+
+</td></tr>
+
+<tr><td class="px-48" align="center" style="padding:32px 48px 48px;border-top:1px solid rgba(241,236,223,0.08)">
+<p style="margin:0;font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;font-size:15px;color:rgba(241,236,223,0.6)">With our regards,<br><span style="color:#d4b884">Château Privé</span></p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>`;
+
+  return { subject, text, html };
+}
